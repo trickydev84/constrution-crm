@@ -1,0 +1,18 @@
+services:
+  mongodb:
+    image: mongo:8
+    ports: ["27017:27017"]
+    volumes: ["construction-crm-mongo:/data/db"]
+  api:
+    build: ./backend
+    ports: ["4000:4000"]
+    env_file: .env
+    depends_on: [mongodb]
+  web:
+    build: ./frontend
+    ports: ["3000:3000"]
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:4000/api
+    depends_on: [api]
+volumes:
+  construction-crm-mongo:

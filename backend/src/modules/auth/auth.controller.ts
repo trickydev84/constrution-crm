@@ -1,0 +1,3 @@
+import { Body, Controller, Post } from '@nestjs/common'; import { IsEmail, IsString, MinLength } from 'class-validator'; import { AuthService } from './auth.service'; import { Public } from './decorators/public.decorator';
+class AuthDto { @IsString() name!: string; @IsEmail() email!: string; @IsString() @MinLength(8) password!: string; }
+@Controller('auth') export class AuthController { constructor(private auth: AuthService) {} @Public() @Post('register') register(@Body() dto: AuthDto) { return this.auth.register(dto); } @Public() @Post('login') login(@Body() dto: AuthDto) { return this.auth.login(dto.email, dto.password); } }
