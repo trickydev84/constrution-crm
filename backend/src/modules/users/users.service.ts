@@ -8,6 +8,20 @@ type SeedUser = { name: string; email: string; role: string; password: string };
   findByEmail(email: string) { return this.model.findOne({ email: email.toLowerCase() }).exec(); }
   create(data: Partial<User>) { return this.model.create(data); }
 
+  // Both exclude the password hash — this is the first public HTTP surface for User documents
+  // (previously only AuthModule read them, via findByEmail above, which still returns it).
+  list(organizationId = 'default', page = 1, limit = 20, filter: { role?: string } = {}) {
+    const query = { organizationId, ...filter };
+    return Promise.all([
+      this.model.find(query).select('-password').sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).exec(),
+      this.model.countDocuments(query),
+    ]).then(([data, total]) => ({ data, meta: { page, limit, total } }));
+  }
+
+  findById(id: string) {
+    return this.model.findById(id).select('-password').exec();
+  }
+
   async onModuleInit() {
     if (process.env.SEED_USERS === 'false') return;
     const users = this.seedUsers();
