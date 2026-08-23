@@ -4,7 +4,11 @@
 ## Summary
 
 Module 11 of `.ai/PRODUCT_SPEC.md` — Phase 2. Supervisors log a daily report per project: work summary,
-photos/videos, attendance, material usage, issues, and the next day's plan.
+photos/videos, attendance, material usage, issues, and the next day's plan. **This is where day-by-day
+worker attendance logging belongs** — when Worker Management (`.ai/BE/features/worker-management.md`) was
+built, daily attendance was deliberately scoped out of it and left for this module, to avoid modeling the
+same concept (a worker present/absent on a given date, on a given project) in two places. When this module
+is built, it should likely reference `Worker._id` per attendance entry rather than duplicating worker data.
 
 ## User-facing behaviour (per PRD, not yet built)
 

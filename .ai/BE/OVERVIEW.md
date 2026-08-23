@@ -2,8 +2,10 @@
 
 ## Purpose
 
-REST API for the Construction CRM: authentication/user accounts and lead management today; the shared
-contracts layer anticipates a broader domain (projects, etc.) not yet implemented.
+REST API for the Construction CRM: authentication (with global route guards), user accounts, lead
+management, customer management, project management, quotation management, and worker management today —
+every Phase 1 module in `.ai/PRODUCT_SPEC.md` except the standalone marketing website. The shared contracts
+layer anticipates a broader Phase 2+ domain (materials, suppliers, billing, etc.) not yet implemented.
 
 ## Tech stack
 
@@ -25,16 +27,31 @@ contracts layer anticipates a broader domain (projects, etc.) not yet implemente
 backend/
 ├── src/
 │   ├── main.ts                    bootstrap: global prefix `api`, CORS, ValidationPipe, Swagger at /docs
-│   ├── app.module.ts              root module: ConfigModule, MongooseModule, Auth/Users/Leads modules
+│   ├── app.module.ts              root module: ConfigModule, MongooseModule, Auth/Users/Leads/Customers modules
 │   ├── common/
-│   │   └── contracts/index.ts     shared enums (Role, LeadStatus, ProjectStage) and DTO interfaces
+│   │   ├── contracts/index.ts     shared enums (Role, LeadStatus, ProjectStage) and DTO interfaces
+│   │   └── dto/
+│   │       └── pagination-meta.dto.ts   shared Swagger response DTO, reused by every paginated list endpoint
 │   ├── database/
 │   │   └── seed.ts                standalone script: boots a Nest app context and triggers UsersService seeding
 │   └── modules/
 │       ├── README.md              module-boundary convention note
-│       ├── auth/                  registration/login, JWT issuance
+│       ├── auth/                  registration/login, JWT issuance, global auth guards
+│       │   ├── dto/                     RegisterDto, LoginDto, AuthResponseDto/AuthUserDto
+│       │   ├── guards/                  JwtAuthGuard, RolesGuard
+│       │   └── decorators/              @Public(), @Roles()
 │       ├── users/                 user schema, lookup/create, startup seeding
-│       └── leads/                 lead schema, list/create/update-status
+│       ├── leads/                 lead schema, list/create/update-status/convert-to-customer
+│       │   └── dto/                     CreateLeadDto, UpdateLeadStatusDto, LeadResponseDto, LeadListResponseDto
+│       ├── customers/             customer schema, list/create/get/update
+│       │   └── dto/                     CreateCustomerDto, UpdateCustomerDto, CustomerResponseDto, CustomerListResponseDto
+│       ├── projects/              project schema, list/create/get/update/update-stage
+│       │   └── dto/                     CreateProjectDto, UpdateProjectDto, UpdateProjectStageDto, ProjectResponseDto, ProjectListResponseDto
+│       ├── quotations/            quotation schema (embedded line items), list/create/get/update
+│       │   └── dto/                     CreateQuotationDto, UpdateQuotationDto, QuotationLineItemDto, QuotationResponseDto, QuotationListResponseDto
+│       └── workers/                worker roster: schema, list/create/get/update/update-availability
+│           ├── worker.constants.ts       WORKER_SKILL_CATEGORIES, WORKER_AVAILABILITY_STATUSES (invented, not shared contracts)
+│           └── dto/                     CreateWorkerDto, UpdateWorkerDto, UpdateWorkerAvailabilityDto, WorkerResponseDto, WorkerListResponseDto
 ├── nest-cli.json                  Nest CLI config (sourceRoot: src)
 ├── tsconfig.json                  strict TS, CommonJS output, decorators enabled
 ├── package.json                   scripts + dependencies
@@ -42,8 +59,10 @@ backend/
 └── .env.example                   documented env vars (see .ai/PROJECT.md)
 ```
 
-Each domain module (`auth`, `users`, `leads`) colocates its own controller, service, Mongoose schema, and DTOs
-— see `backend/src/modules/README.md`. This is the convention any new module should follow.
+Each domain module (`auth`, `users`, `leads`, `customers`, `projects`, `quotations`, `workers`) colocates its own controller, service, Mongoose
+schema, and a `dto/` subfolder — see `backend/src/modules/README.md`. This is the convention any new module
+should follow. DTOs are **not** inlined in the controller file (see `.ai/BE/ARCHITECTURE.md` for why) and
+every DTO/endpoint must be Swagger-documented per project convention.
 
 ## Setup / run / build / test
 

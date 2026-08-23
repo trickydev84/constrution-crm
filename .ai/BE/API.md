@@ -1,27 +1,83 @@
 # Backend — API reference
 
-All routes are prefixed with `/api` (set in `backend/src/main.ts`). Swagger UI is live at `/docs` when the
-server is running. A global `JwtAuthGuard` requires a valid `Authorization: Bearer <token>` on every route
-except those marked `@Public()` — see `.ai/BE/features/auth.md`. No route yet restricts by role
-(`RolesGuard`/`@Roles()` exist but aren't applied anywhere).
+All routes are prefixed with `/api` (set in `backend/src/main.ts`). Swagger UI is live at `/docs` (raw JSON
+at `/docs-json`) when the server is running. Full Swagger documentation (request DTOs, response DTOs,
+error-status descriptions) is a standing convention applied to every endpoint at creation time — see project
+memory `feedback_swagger_docs` — not a one-time backfill; the table below reflects every endpoint as of
+2026-08-09.
 
-| Method | Path | Auth required | Request body | Response | Error cases | Source |
+**Auth is two layers, both required**: a global `JwtAuthGuard` requires a valid `Authorization: Bearer
+<token>` on every route except those marked `@Public()`; a global `PermissionsGuard` then requires a specific
+`(Resource, action)` grant on top of that (see `.ai/BE/features/permissions.md`) — **breaking change,
+2026-08-08**: every route below that used to say "any authenticated role" now requires the named grant
+specifically. **As of 2026-08-08 (later, user-directed), SUPERADMIN is the only role seeded with any grants
+at all** — the other 6 seeded demo accounts (`ADMIN`/`SALES`/`PROJECT_MANAGER`/`SUPERVISOR`/`ACCOUNTANT`/
+`CUSTOMER`) get `403` on every protected route until SUPERADMIN explicitly grants them access via
+`PATCH /api/permissions/:role/:resource` (or the FE `/permissions` page). `RolesGuard`/`@Roles()` still exist
+but are unused/superseded — see `.ai/BE/features/auth.md`.
+
+Request/response DTOs live under `modules/<name>/dto/*.dto.ts` — see each feature file's Key files section
+for exact filenames. The table below is a human-readable summary; `/docs` is the authoritative, always-current
+reference.
+
+| Method | Path | Auth required | Request DTO | Response DTO | Error cases | Source |
 |---|---|---|---|---|---|---|
-| POST | `/api/auth/register` | No (`@Public()`) | `{ name: string, email: string, password: string (min 8) }` — `role` is not accepted from the client, always created as `CUSTOMER` | `201 { accessToken: string, user: { id, name, email, role: "CUSTOMER" } }` | `401` if email already registered | `backend/src/modules/auth/auth.controller.ts`, `auth.service.ts` |
-| POST | `/api/auth/login` | No (`@Public()`) | `{ name: string, email: string, password: string (min 8) }` (DTO reuses `AuthDto`; `name` is accepted but unused for login) | `200 { accessToken: string, user: { id, name, email, role } }` | `401` if user not found or password mismatch | `backend/src/modules/auth/auth.controller.ts`, `auth.service.ts` |
-| GET | `/api/leads` | **Yes** (any authenticated role) | Query: `page` (default `'1'`), `limit` (default `'20'`) | `200 { data: Lead[], meta: { page, limit, total } }` | `401` if token missing/invalid | `backend/src/modules/leads/leads.controller.ts`, `leads.service.ts` |
-| POST | `/api/leads` | **Yes** (any authenticated role) | `{ name: string, phone: string, email?: string, source?: string, notes?: string }` | `201` created `Lead` document | `401` if token missing/invalid; `400` if `name`/`phone` missing | `backend/src/modules/leads/leads.controller.ts`, `leads.service.ts` |
-| PATCH | `/api/leads/:id/status` | **Yes** (any authenticated role) | `{ status: string }` (not enum-validated) | `200` updated `Lead` document (or `null` if `id` not found) | `401` if token missing/invalid; no explicit 404 handling — returns `null` body if not found | `backend/src/modules/leads/leads.controller.ts`, `leads.service.ts` |
+| POST | `/api/auth/register` | No (`@Public()`) | `RegisterDto`: `{ name, email, password (min 8) }` — `role` not accepted from client, always `CUSTOMER` | `201 AuthResponseDto: { accessToken, user: { id, name, email, role } }` | `401` if email already registered | `backend/src/modules/auth/auth.controller.ts`, `auth.service.ts` |
+| POST | `/api/auth/login` | No (`@Public()`) | `LoginDto`: `{ email, password (min 8) }` | `201 AuthResponseDto` — **not 200**: Nest's default status for `@Post()` with no `@HttpCode()` override is `201`, never overridden here, so login also returns `201` despite not creating anything | `401` if user not found or password mismatch | `backend/src/modules/auth/auth.controller.ts`, `auth.service.ts` |
+| GET | `/api/leads` | `LEADS:view` | Query: `page` (default `'1'`), `limit` (default `'20'`) | `200 LeadListResponseDto: { data: LeadResponseDto[], meta: PaginationMetaDto }` | `401` if token missing/invalid; `403` if role lacks `LEADS:view` | `backend/src/modules/leads/leads.controller.ts`, `leads.service.ts` |
+| POST | `/api/leads` | `LEADS:write` | `CreateLeadDto`: `{ name, phone, email?, source?, notes? }` | `201 LeadResponseDto` | `401`/`403`; `400` if `name`/`phone` missing | `backend/src/modules/leads/leads.controller.ts`, `leads.service.ts` |
+| PATCH | `/api/leads/:id/status` | `LEADS:write` | `UpdateLeadStatusDto`: `{ status }` (not enum-validated) | `200 LeadResponseDto` (or `null` if `id` not found) | `401`/`403`; no explicit 404 handling — returns `null` body if not found | `backend/src/modules/leads/leads.controller.ts`, `leads.service.ts` |
+| POST | `/api/leads/:id/convert` | `LEADS:write` (only — not also `CUSTOMERS:write`, even though it creates a `Customer`; see `.ai/BE/features/permissions.md` Known gaps) | none | `201 CustomerResponseDto` | `401`/`403`; `404` if lead not found; `400` if lead status isn't `WON`; `409` if already converted | `backend/src/modules/leads/leads.controller.ts`, `leads.service.ts`, `backend/src/modules/customers/customers.service.ts` |
+| GET | `/api/customers` | `CUSTOMERS:view` | Query: `page` (default `'1'`), `limit` (default `'20'`) | `200 CustomerListResponseDto: { data: CustomerResponseDto[], meta: PaginationMetaDto }` | `401`/`403` | `backend/src/modules/customers/customers.controller.ts`, `customers.service.ts` |
+| GET | `/api/customers/:id` | `CUSTOMERS:view` | none | `200 CustomerResponseDto` (or `null` if not found) | `401`/`403`; no explicit 404 — returns `null` body if not found | `backend/src/modules/customers/customers.controller.ts`, `customers.service.ts` |
+| POST | `/api/customers` | `CUSTOMERS:write` | `CreateCustomerDto`: `{ name, phone, email?, address?, notes? }` | `201 CustomerResponseDto` | `401`/`403`; `400` if `name`/`phone` missing | `backend/src/modules/customers/customers.controller.ts`, `customers.service.ts` |
+| PATCH | `/api/customers/:id` | `CUSTOMERS:write` | `UpdateCustomerDto`: all fields optional | `200 CustomerResponseDto` (or `null` if not found) | `401`/`403`; no explicit 404 — returns `null` body if not found | `backend/src/modules/customers/customers.controller.ts`, `customers.service.ts` |
+| GET | `/api/projects` | `PROJECTS:view` | Query: `page` (default `'1'`), `limit` (default `'20'`) | `200 ProjectListResponseDto: { data: ProjectResponseDto[], meta: PaginationMetaDto }` | `401`/`403` | `backend/src/modules/projects/projects.controller.ts`, `projects.service.ts` |
+| GET | `/api/projects/:id` | `PROJECTS:view` | none | `200 ProjectResponseDto` (or `null` if not found) | `401`/`403`; no explicit 404 — returns `null` body if not found | `backend/src/modules/projects/projects.controller.ts`, `projects.service.ts` |
+| POST | `/api/projects` | `PROJECTS:write` | `CreateProjectDto`: `{ name, customerId, projectManagerId?, supervisorId?, budget?, startDate?, endDate?, progressPercent?, notes? }` | `201 ProjectResponseDto` | `401`/`403`; `404` if `customerId` doesn't reference an existing customer; `400` on validation failure | `backend/src/modules/projects/projects.controller.ts`, `projects.service.ts` |
+| PATCH | `/api/projects/:id` | `PROJECTS:write` | `UpdateProjectDto`: all fields optional, `customerId` not included (immutable) | `200 ProjectResponseDto` (or `null` if not found) | `401`/`403`; no explicit 404 — returns `null` body if not found | `backend/src/modules/projects/projects.controller.ts`, `projects.service.ts` |
+| PATCH | `/api/projects/:id/stage` | `PROJECTS:write` | `UpdateProjectStageDto`: `{ stage }` (not enum-validated) | `200 ProjectResponseDto` (or `null` if not found) | `401`/`403`; no explicit 404 handling | `backend/src/modules/projects/projects.controller.ts`, `projects.service.ts` |
+| GET | `/api/quotations` | `QUOTATIONS:view` | Query: `page` (default `'1'`), `limit` (default `'20'`) | `200 QuotationListResponseDto: { data: QuotationResponseDto[], meta: PaginationMetaDto }` | `401`/`403` | `backend/src/modules/quotations/quotations.controller.ts`, `quotations.service.ts` |
+| GET | `/api/quotations/:id` | `QUOTATIONS:view` | none | `200 QuotationResponseDto` (or `null` if not found) | `401`/`403`; no explicit 404 | `backend/src/modules/quotations/quotations.controller.ts`, `quotations.service.ts` |
+| POST | `/api/quotations` | `QUOTATIONS:write` | `CreateQuotationDto`: `{ leadId, lineItems: [{ description, category: 'MATERIAL'\|'LABOR', quantity, unitPrice }] (min 1), taxPercent?, discountPercent?, notes?, terms? }` | `201 QuotationResponseDto` — server-computed `subtotal`/`discountAmount`/`taxAmount`/`total`, discount applied before tax | `401`/`403`; `404` if `leadId` doesn't reference an existing lead; `400` on validation failure (e.g. empty `lineItems`) | `backend/src/modules/quotations/quotations.controller.ts`, `quotations.service.ts` |
+| PATCH | `/api/quotations/:id` | `QUOTATIONS:write` | `UpdateQuotationDto`: all fields optional, `leadId` not included (immutable); `lineItems` if provided replaces the whole array | `200 QuotationResponseDto` — totals always recomputed | `401`/`403` | `backend/src/modules/quotations/quotations.controller.ts`, `quotations.service.ts` |
+| GET | `/api/workers` | `WORKERS:view` | Query: `page` (default `'1'`), `limit` (default `'20'`) | `200 WorkerListResponseDto: { data: WorkerResponseDto[], meta: PaginationMetaDto }` | `401`/`403` | `backend/src/modules/workers/workers.controller.ts`, `workers.service.ts` |
+| GET | `/api/workers/:id` | `WORKERS:view` | none | `200 WorkerResponseDto` (or `null` if not found) | `401`/`403` | `backend/src/modules/workers/workers.controller.ts`, `workers.service.ts` |
+| POST | `/api/workers` | `WORKERS:write` | `CreateWorkerDto`: `{ name, phone, skillCategory, dailyWage?, assignedProjectId?, rating?, notes? }` | `201 WorkerResponseDto` | `401`/`403`; `400` if `skillCategory` isn't one of `MASON\|ELECTRICIAN\|PLUMBER\|CARPENTER\|PAINTER\|MARBLE_WORKER\|WELDER`, or other validation failure | `backend/src/modules/workers/workers.controller.ts`, `workers.service.ts` |
+| PATCH | `/api/workers/:id` | `WORKERS:write` | `UpdateWorkerDto`: all fields optional, `availabilityStatus` not included (use the dedicated endpoint) | `200 WorkerResponseDto` (or `null` if not found) | `401`/`403` | `backend/src/modules/workers/workers.controller.ts`, `workers.service.ts` |
+| PATCH | `/api/workers/:id/availability` | `WORKERS:write` | `UpdateWorkerAvailabilityDto`: `{ availabilityStatus }`, strictly validated against `AVAILABLE\|ASSIGNED\|ON_LEAVE\|INACTIVE` | `200 WorkerResponseDto` (or `null` if not found) | `401`/`403`; `400` if value isn't in the allowed list | `backend/src/modules/workers/workers.controller.ts`, `workers.service.ts` |
+| GET | `/api/materials` | `MATERIALS:view` | Query: `page` (default `'1'`), `limit` (default `'20'`) | `200 MaterialListResponseDto: { data: MaterialResponseDto[], meta: PaginationMetaDto }` | `401`/`403` | `backend/src/modules/materials/materials.controller.ts`, `materials.service.ts` |
+| GET | `/api/materials/low-stock` | `MATERIALS:view` | none | `200`, plain array of `MaterialResponseDto` where `stockQuantity <= reorderLevel` (not `{data,meta}` — a bounded "alerts" view) | `401`/`403` | `backend/src/modules/materials/materials.controller.ts`, `materials.service.ts` |
+| GET | `/api/materials/:id` | `MATERIALS:view` | none | `200 MaterialResponseDto` (or `null` if not found) | `401`/`403` | `backend/src/modules/materials/materials.controller.ts`, `materials.service.ts` |
+| POST | `/api/materials` | `MATERIALS:write` | `CreateMaterialDto`: `{ name, category, unit, unitPrice?, stockQuantity?, reorderLevel?, notes? }` | `201 MaterialResponseDto` | `401`/`403`; `400` if `category` isn't one of `CEMENT\|SAND\|STEEL\|BRICKS\|MARBLE\|TILES\|PAINT\|OTHER`, or other validation failure | `backend/src/modules/materials/materials.controller.ts`, `materials.service.ts` |
+| PATCH | `/api/materials/:id` | `MATERIALS:write` | `UpdateMaterialDto`: all fields optional, including `stockQuantity` for direct corrections | `200 MaterialResponseDto` (or `null` if not found) | `401`/`403` | `backend/src/modules/materials/materials.controller.ts`, `materials.service.ts` |
+| GET | `/api/material-requests` | `MATERIALS:view` | Query: `page`, `limit`, optional `projectId`, `status` | `200 MaterialRequestListResponseDto: { data: MaterialRequestResponseDto[], meta: PaginationMetaDto }` | `401`/`403` | `backend/src/modules/materials/material-requests.controller.ts`, `material-requests.service.ts` |
+| GET | `/api/material-requests/:id` | `MATERIALS:view` | none | `200 MaterialRequestResponseDto` (or `null` if not found) | `401`/`403` | `backend/src/modules/materials/material-requests.controller.ts`, `material-requests.service.ts` |
+| POST | `/api/material-requests` | `MATERIALS:write` | `CreateMaterialRequestDto`: `{ projectId, materialId, quantity, requestedBy?, notes? }` | `201 MaterialRequestResponseDto`, status `REQUESTED` | `401`/`403`; `404` if `materialId` doesn't reference an existing material; `400` on validation failure | `backend/src/modules/materials/material-requests.controller.ts`, `material-requests.service.ts` |
+| PATCH | `/api/material-requests/:id/approve` | `MATERIALS:write` | none | `200 MaterialRequestResponseDto`, status `APPROVED` | `401`/`403`; `404` if not found; `400` if not currently `REQUESTED` | `backend/src/modules/materials/material-requests.controller.ts`, `material-requests.service.ts` |
+| PATCH | `/api/material-requests/:id/reject` | `MATERIALS:write` | none | `200 MaterialRequestResponseDto`, status `REJECTED` | `401`/`403`; `404` if not found; `400` if already `FULFILLED`/`REJECTED` | `backend/src/modules/materials/material-requests.controller.ts`, `material-requests.service.ts` |
+| PATCH | `/api/material-requests/:id/fulfill` | `MATERIALS:write` | none | `200 MaterialRequestResponseDto`, status `FULFILLED`; atomically decrements the material's `stockQuantity` | `401`/`403`; `404` if not found; `400` if not currently `APPROVED`, or stock is insufficient | `backend/src/modules/materials/material-requests.controller.ts`, `material-requests.service.ts` |
+| GET | `/api/users` | `USERS:view` | Query: `page` (default `'1'`), `limit` (default `'20'`), optional `role` | `200 UserListResponseDto: { data: UserResponseDto[], meta: PaginationMetaDto }` — `password` never included | `401`/`403` | `backend/src/modules/users/users.controller.ts`, `users.service.ts` |
+| GET | `/api/users/:id` | `USERS:view` | none | `200 UserResponseDto` (or `null` if not found) — `password` never included | `401`/`403` | `backend/src/modules/users/users.controller.ts`, `users.service.ts` |
+| GET | `/api/permissions` | `PERMISSIONS:view` (SUPERADMIN-only in practice — no other role is seeded with it) | none | `200`, plain array of `PermissionResponseDto` (not `{data,meta}` — a small bounded set, not a paginated collection) | `401`/`403` | `backend/src/modules/permissions/permissions.controller.ts`, `permissions.service.ts` |
+| GET | `/api/permissions/me` | any authenticated user (no `@RequirePermission` — self-scoped, see `.ai/BE/features/permissions.md`) | none | `200`, array of `MyPermissionDto` — one per `Resource`, `{resource, canView, canWrite, canDelete}` | `401` | `backend/src/modules/permissions/permissions.controller.ts`, `permissions.service.ts` |
+| PATCH | `/api/permissions/:role/:resource` | `PERMISSIONS:write` (SUPERADMIN-only in practice) | `UpdatePermissionDto`: `{ canView?, canWrite?, canDelete? }` | `200 PermissionResponseDto` | `401`/`403`; `400` if `:role`/`:resource` isn't a valid enum value | `backend/src/modules/permissions/permissions.controller.ts`, `permissions.service.ts` |
+| DELETE | `/api/permissions/:role/:resource` | `PERMISSIONS:delete` (SUPERADMIN-only in practice) | none | `200 PermissionResponseDto` or `200 null` if no row existed | `401`/`403`; `400` if `:role`/`:resource` isn't a valid enum value | `backend/src/modules/permissions/permissions.controller.ts`, `permissions.service.ts` |
 
 ## Notes
 
 - Global `ValidationPipe` (`whitelist: true, transform: true`) strips unknown fields and coerces payloads to
   the DTO classes shown above (`backend/src/main.ts`).
-- Global `JwtAuthGuard` + `RolesGuard` (`backend/src/modules/auth/auth.module.ts`) enforce authentication on
-  every route by default; a `401` response of `{"message":"Missing access token", ...}` or
-  `{"message":"Invalid or expired access token", ...}` means the guard rejected the request before it reached
-  the controller.
-- Responses are **not** wrapped in the `ApiResponse<T>` / `ApiError` shapes defined in
-  `backend/src/common/contracts/index.ts` except where the shape happens to match (`GET /api/leads`) —
-  see `.ai/BE/ARCHITECTURE.md` "No response envelope in use".
+- Global `JwtAuthGuard` + `RolesGuard` + `PermissionsGuard` (`backend/src/modules/auth/auth.module.ts`, in
+  that registration order) enforce authentication then authorization on every route by default. A `401`
+  response of `{"message":"Missing access token", ...}` or `{"message":"Invalid or expired access token",
+  ...}` means `JwtAuthGuard` rejected the request before it reached the controller. A `403` response of
+  `{"message":"Missing '<action>' permission on '<resource>'", ...}` means `PermissionsGuard` rejected an
+  authenticated request whose role lacks the required grant — see `.ai/BE/features/permissions.md` for the
+  full matrix and how to change it.
+- **Response DTOs document intended shape, not enforced serialization.** Controllers return the raw
+  Mongoose document (or a plain `{ data, meta }` object) at runtime — no `ClassSerializerInterceptor` or
+  similar is applied. This means the actual JSON includes Mongoose's `__v` field, which the response DTOs
+  (e.g. `LeadResponseDto`) don't document, since it's not meaningful to API consumers. See
+  `.ai/BE/ARCHITECTURE.md` "No response envelope in use".
 - CORS is fully open (`origin: true`) — no origin allow-list is configured.
