@@ -3,7 +3,9 @@
     "allow": [
       "Bash(npm install *)",
       "Bash(npm run *)",
-      "Bash(npm i *)"
+      "Bash(npm i *)",
+      "Bash(curl -s http://localhost:4000/docs-json -o /tmp/swagger4.json)",
+      "Bash(python3 -c ' *)"
     ]
   }
 }
