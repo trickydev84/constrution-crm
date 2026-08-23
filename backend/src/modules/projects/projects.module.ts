@@ -1,0 +1,2 @@
+import { Module } from '@nestjs/common'; import { MongooseModule } from '@nestjs/mongoose'; import { CustomersModule } from '../customers/customers.module'; import { Project, ProjectSchema } from './project.schema'; import { ProjectsService } from './projects.service'; import { ProjectsController } from './projects.controller';
+@Module({ imports: [MongooseModule.forFeature([{ name: Project.name, schema: ProjectSchema }]), CustomersModule], providers: [ProjectsService], controllers: [ProjectsController] }) export class ProjectsModule {}

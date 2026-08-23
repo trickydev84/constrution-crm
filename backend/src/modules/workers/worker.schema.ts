@@ -1,0 +1,3 @@
+import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose'; import { HydratedDocument } from 'mongoose';
+@Schema({ timestamps: true }) export class Worker { @Prop({ required: true }) name!: string; @Prop({ required: true }) phone!: string; @Prop({ required: true }) skillCategory!: string; @Prop() dailyWage?: number; @Prop({ default: 'AVAILABLE' }) availabilityStatus!: string; @Prop() assignedProjectId?: string; @Prop({ min: 1, max: 5 }) rating?: number; @Prop({ default: 'default' }) organizationId!: string; @Prop() notes?: string; }
+export type WorkerDocument = HydratedDocument<Worker>; export const WorkerSchema = SchemaFactory.createForClass(Worker);
