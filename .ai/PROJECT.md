@@ -337,12 +337,29 @@ missing `password`). Read-only verification, nothing to clean up. Built to unblo
 dashboard's dropped "Manager" column, role-based pickers) but **not wired into any FE page in this pass** —
 that's separate follow-up work. Full detail: `.ai/BE/features/user-accounts.md`.
 
-Next: wire `GET /api/users` into the FE (resolve `Project.projectManagerId`/`supervisorId` to real names on
-`/projects`, restore the dashboard's dropped "Manager" column, or build a PM/supervisor picker), connect
-ClickUp and populate it, get user eyes on the redesigned dashboard and every dedicated page
+**`GET /api/users` wired into `/projects`, 2026-08-24 — user-directed, resuming after a session gap.**
+Resolved the "Next" candidate below: `projectManagerId`/`supervisorId` were fields with zero UI since the
+Projects module shipped. Added `Manager`/`Supervisor` table columns (resolved via `GET /users?role=`) and a
+per-row inline `Select` for reassignment (mirrors the existing Stage column's "act immediately" pattern),
+plus both fields as optional pickers in the "＋ New project" dialog. Uses the backend's pre-existing general
+`PATCH /projects/:id` route, which had never been called from the FE before — verified live first, since it
+wasn't obvious from reading the service code alone, that `findByIdAndUpdate(id, plainObject)` does a true
+partial merge and not a full-document replace. Unassigning sends an explicit `null` rather than omitting the
+key, since `JSON.stringify` silently drops `undefined`-valued object keys — confirmed the backend's
+`@IsOptional()` DTO validator accepts `null` and the update actually clears the field. The picker gracefully
+degrades to plain text for a role that has `PROJECTS:write` but lacks the separate `USERS:view` grant (same
+precedent as the existing customers-picker degradation). Verified live: 14/14 assertions (page-load fetch, no
+password leakage in the user list, create with both fields set, inline reassign, inline unassign-to-null, and
+the no-`USERS`-grant degradation path); test project deleted directly from MongoDB (no delete endpoint
+exists) and temporary grants reverted. The dashboard's "restore the Manager column" idea from the note below
+turned out to be moot — that table was already removed in the 2026-08-10 dashboard redesign, replaced by a
+slim summary card with no table at all. Full detail: `.ai/FE/features/projects.md`.
+
+Next: connect ClickUp and populate it, get user eyes on the redesigned dashboard and every dedicated page
 (Leads/Customers/Projects/Materials/Quotations/Workers) in an actual browser (still no browser-driven
-verification anywhere in this session), start the next Phase 2 backend module (Supplier Management,
-Module 8), or something else — not yet decided.
+verification anywhere in this project), start the next Phase 2 backend module (Supplier Management,
+Module 8), add a general "edit project" dialog (name/budget/dates/notes/progressPercent — `PATCH
+/projects/:id` already supports all of it), or something else — not yet decided.
 
 ## Open questions
 

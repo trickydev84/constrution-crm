@@ -106,6 +106,17 @@ export type MaterialRequest = {
   updatedAt: string;
 };
 
+export type User = {
+  _id: string;
+  name: string;
+  email: string;
+  role: string;
+  organizationId: string;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type Permission = {
   _id: string;
   role: string;
@@ -189,12 +200,20 @@ export function listProjects(page = 1, limit = 200) {
   return request<{ data: Project[]; meta: { page: number; limit: number; total: number } }>(`/projects?page=${page}&limit=${limit}`);
 }
 
-export function createProject(input: { name: string; customerId: string; budget?: number; startDate?: string; endDate?: string; notes?: string }) {
+export function createProject(input: { name: string; customerId: string; projectManagerId?: string; supervisorId?: string; budget?: number; startDate?: string; endDate?: string; notes?: string }) {
   return request<Project>('/projects', { method: 'POST', body: JSON.stringify(input) });
 }
 
 export function updateProjectStage(id: string, stage: string) {
   return request<Project>(`/projects/${id}/stage`, { method: 'PATCH', body: JSON.stringify({ stage }) });
+}
+
+export function updateProject(id: string, input: { projectManagerId?: string | null; supervisorId?: string | null }) {
+  return request<Project>(`/projects/${id}`, { method: 'PATCH', body: JSON.stringify(input) });
+}
+
+export function listUsersByRole(role: string, page = 1, limit = 200) {
+  return request<{ data: User[]; meta: { page: number; limit: number; total: number } }>(`/users?role=${role}&page=${page}&limit=${limit}`);
 }
 
 export function listQuotations(page = 1, limit = 200) {

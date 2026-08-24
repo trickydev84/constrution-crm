@@ -32,10 +32,13 @@ import {
   getMyPermissions,
   listCustomers,
   listProjects,
+  listUsersByRole,
+  updateProject,
   updateProjectStage,
   type Customer,
   type MyPermission,
   type Project,
+  type User,
 } from '@/lib/api';
 import { getUser, type AuthUser } from '@/lib/auth';
 
@@ -52,7 +55,10 @@ function formatINR(amount: number) {
   return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(amount);
 }
 
-const EMPTY_PROJECT_FORM = { name: '', customerId: '', budget: '', startDate: '', endDate: '', notes: '' };
+const EMPTY_PROJECT_FORM = { name: '', customerId: '', projectManagerId: '', supervisorId: '', budget: '', startDate: '', endDate: '', notes: '' };
+
+// Select (base UI) requires non-empty item values, so "no assignment" needs a sentinel rather than ''.
+const UNASSIGNED = 'unassigned';
 
 export default function ProjectsPage() {
   const router = useRouter();
@@ -63,10 +69,13 @@ export default function ProjectsPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loadingProjects, setLoadingProjects] = useState(true);
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [projectManagers, setProjectManagers] = useState<User[]>([]);
+  const [supervisors, setSupervisors] = useState<User[]>([]);
   const [showNewProject, setShowNewProject] = useState(false);
   const [projectForm, setProjectForm] = useState(EMPTY_PROJECT_FORM);
   const [submittingProject, setSubmittingProject] = useState(false);
   const [changingStageId, setChangingStageId] = useState<string | null>(null);
+  const [assigningId, setAssigningId] = useState<string | null>(null);
 
   useEffect(() => {
     const u = getUser();
@@ -92,6 +101,7 @@ export default function ProjectsPage() {
   function refreshAll() {
     refreshProjects();
     refreshCustomers();
+    refreshUsers();
   }
 
   async function refreshProjects() {
@@ -117,6 +127,19 @@ export default function ProjectsPage() {
     }
   }
 
+  // Fetched for the "New project" and per-row assignment pickers. Gated on the USERS resource, a
+  // separate permission from PROJECTS — a role with PROJECTS:write but no USERS:view grant will fail
+  // this fetch and simply see empty pickers, same as the customers picker does today.
+  async function refreshUsers() {
+    try {
+      const [pms, sups] = await Promise.all([listUsersByRole('PROJECT_MANAGER'), listUsersByRole('SUPERVISOR')]);
+      setProjectManagers(pms.data);
+      setSupervisors(sups.data);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Could not load project managers/supervisors');
+    }
+  }
+
   async function handleCreateProject(e: FormEvent) {
     e.preventDefault();
     setSubmittingProject(true);
@@ -124,6 +147,8 @@ export default function ProjectsPage() {
       await createProject({
         name: projectForm.name,
         customerId: projectForm.customerId,
+        projectManagerId: projectForm.projectManagerId || undefined,
+        supervisorId: projectForm.supervisorId || undefined,
         budget: projectForm.budget ? Number(projectForm.budget) : undefined,
         startDate: projectForm.startDate || undefined,
         endDate: projectForm.endDate || undefined,
@@ -150,6 +175,21 @@ export default function ProjectsPage() {
       toast.error(err instanceof Error ? err.message : 'Could not update stage');
     } finally {
       setChangingStageId(null);
+    }
+  }
+
+  async function handleAssign(id: string, field: 'projectManagerId' | 'supervisorId', value: string) {
+    setAssigningId(id);
+    try {
+      // null (not undefined) — JSON.stringify drops undefined-valued keys, which would leave the
+      // field unchanged on the server instead of clearing it. Confirmed live: PATCH accepts null.
+      await updateProject(id, { [field]: value === UNASSIGNED ? null : value });
+      toast.success(field === 'projectManagerId' ? 'Project manager updated' : 'Supervisor updated');
+      await refreshProjects();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Could not update assignment');
+    } finally {
+      setAssigningId(null);
     }
   }
 
@@ -184,6 +224,8 @@ export default function ProjectsPage() {
   }
 
   const customerNameById = new Map(customers.map((c) => [c._id, c.name]));
+  const pmNameById = new Map(projectManagers.map((u) => [u._id, u.name]));
+  const supervisorNameById = new Map(supervisors.map((u) => [u._id, u.name]));
 
   return (
     <SidebarProvider>
@@ -232,6 +274,8 @@ export default function ProjectsPage() {
                       <TableHead>Project</TableHead>
                       <TableHead>Customer</TableHead>
                       <TableHead>Stage</TableHead>
+                      <TableHead>Manager</TableHead>
+                      <TableHead>Supervisor</TableHead>
                       <TableHead>Progress</TableHead>
                       <TableHead>Budget</TableHead>
                       <TableHead>Start date</TableHead>
@@ -259,6 +303,44 @@ export default function ProjectsPage() {
                             </Select>
                           ) : (
                             <Badge variant="secondary">{titleCase(p.stage)}</Badge>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {canWrite && projectManagers.length > 0 ? (
+                            <Select
+                              value={p.projectManagerId ?? UNASSIGNED}
+                              onValueChange={(v) => v && handleAssign(p._id, 'projectManagerId', v)}
+                              disabled={assigningId === p._id}
+                            >
+                              <SelectTrigger className="h-8 w-40"><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value={UNASSIGNED}>Unassigned</SelectItem>
+                                {projectManagers.map((u) => (
+                                  <SelectItem key={u._id} value={u._id}>{u.name}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          ) : (
+                            <span className="text-sm text-muted-foreground">{pmNameById.get(p.projectManagerId ?? '') ?? 'Unassigned'}</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {canWrite && supervisors.length > 0 ? (
+                            <Select
+                              value={p.supervisorId ?? UNASSIGNED}
+                              onValueChange={(v) => v && handleAssign(p._id, 'supervisorId', v)}
+                              disabled={assigningId === p._id}
+                            >
+                              <SelectTrigger className="h-8 w-40"><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value={UNASSIGNED}>Unassigned</SelectItem>
+                                {supervisors.map((u) => (
+                                  <SelectItem key={u._id} value={u._id}>{u.name}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          ) : (
+                            <span className="text-sm text-muted-foreground">{supervisorNameById.get(p.supervisorId ?? '') ?? 'Unassigned'}</span>
                           )}
                         </TableCell>
                         <TableCell>
@@ -318,6 +400,44 @@ export default function ProjectsPage() {
                     No customers yet — convert a WON lead into one first.
                   </p>
                 )}
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="project-pm">Project manager</Label>
+                  <Select
+                    value={projectForm.projectManagerId || UNASSIGNED}
+                    onValueChange={(v) => setProjectForm({ ...projectForm, projectManagerId: !v || v === UNASSIGNED ? '' : v })}
+                    disabled={projectManagers.length === 0}
+                  >
+                    <SelectTrigger id="project-pm" className="w-full">
+                      <SelectValue placeholder={projectManagers.length === 0 ? 'None available' : 'Unassigned'} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={UNASSIGNED}>Unassigned</SelectItem>
+                      {projectManagers.map((u) => (
+                        <SelectItem key={u._id} value={u._id}>{u.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="project-supervisor">Supervisor</Label>
+                  <Select
+                    value={projectForm.supervisorId || UNASSIGNED}
+                    onValueChange={(v) => setProjectForm({ ...projectForm, supervisorId: !v || v === UNASSIGNED ? '' : v })}
+                    disabled={supervisors.length === 0}
+                  >
+                    <SelectTrigger id="project-supervisor" className="w-full">
+                      <SelectValue placeholder={supervisors.length === 0 ? 'None available' : 'Unassigned'} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={UNASSIGNED}>Unassigned</SelectItem>
+                      {supervisors.map((u) => (
+                        <SelectItem key={u._id} value={u._id}>{u.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="project-budget">Budget (₹)</Label>
