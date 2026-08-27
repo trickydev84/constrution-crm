@@ -14,4 +14,8 @@ export class RegisterDto {
   @IsString()
   @MinLength(8)
   password!: string;
+
+  @ApiProperty({ example: 'acme-builders', description: 'The Organization.slug the new CUSTOMER account joins. Must exist and be ACTIVE.' })
+  @IsString()
+  organizationSlug!: string;
 }

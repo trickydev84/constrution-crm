@@ -124,8 +124,15 @@ unimplemented server-side (the frontend dashboard is static mock data — see
   authenticated-feeling dashboard route.
 - The PRD's role list omits `SUPERADMIN` (present in code). Is `SUPERADMIN` a superset of `Administrator`,
   or a distinct role the PRD hasn't caught up to?
-- Multi-tenancy is explicitly Phase 4 / out of scope now, which matches the confirmed single-org design
-  (see `.ai/PROJECT.md`) — no conflict, just noting it's consistent.
+- **Deviation from this spec, 2026-08-27**: multi-tenancy (Phase 4 here) was pulled forward and its
+  Stage 1 shipped, by explicit user request — the "confirmed single-org design" this bullet used to
+  reference is no longer accurate. Real per-organization data isolation, self-serve signup with
+  master-admin approval, and a separate platform-admin identity all exist now; see
+  `.ai/BE/features/multi-tenancy.md` and `.ai/BE/features/platform-admin.md`. Billing/plan-limits and
+  real subdomain routing (also implied by this spec's Phase 4 line) remain deferred — see
+  `.ai/PROJECT.md`'s Stage 2/Stage 3 notes. This mirrors the precedent set by the permissions
+  module's earlier documented divergence from this spec's "Administrator manages permissions"
+  language — a deliberate, reversible choice, not an oversight.
 - Tailwind CSS is suggested but the current frontend uses plain CSS — is a migration to Tailwind wanted
   before more UI is built, or should plain CSS continue?
 - AWS S3 / file storage: several PRD modules depend on file upload (documents, photos, drawings, receipts).

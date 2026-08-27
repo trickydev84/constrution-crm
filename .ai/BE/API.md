@@ -6,8 +6,11 @@ error-status descriptions) is a standing convention applied to every endpoint at
 memory `feedback_swagger_docs` — not a one-time backfill; the table below reflects every endpoint as of
 2026-08-09.
 
-**Auth is two layers, both required**: a global `JwtAuthGuard` requires a valid `Authorization: Bearer
-<token>` on every route except those marked `@Public()`; a global `PermissionsGuard` then requires a specific
+**Org-scoped routes are three guard layers, all required, in this order**: a global `JwtAuthGuard`
+requires a valid `Authorization: Bearer <token>` on every route except those marked `@Public()`;
+a global `OrganizationStatusGuard` (added 2026-08-27) then requires the caller's `Organization` to be
+`ACTIVE` (`403` with `code: ORGANIZATION_PENDING|SUSPENDED|REJECTED|NOT_FOUND` otherwise — see
+`.ai/BE/features/multi-tenancy.md`); a global `PermissionsGuard` then requires a specific
 `(Resource, action)` grant on top of that (see `.ai/BE/features/permissions.md`) — **breaking change,
 2026-08-08**: every route below that used to say "any authenticated role" now requires the named grant
 specifically. **As of 2026-08-08 (later, user-directed), SUPERADMIN is the only role seeded with any grants
@@ -16,14 +19,31 @@ at all** — the other 6 seeded demo accounts (`ADMIN`/`SALES`/`PROJECT_MANAGER`
 `PATCH /api/permissions/:role/:resource` (or the FE `/permissions` page). `RolesGuard`/`@Roles()` still exist
 but are unused/superseded — see `.ai/BE/features/auth.md`.
 
+**Platform routes (`/api/platform/*`) are a completely separate auth chain** (2026-08-27): a
+`PlatformAdminGuard` verifies a token signed with `PLATFORM_JWT_SECRET` (a different secret from
+`JWT_SECRET`) and never touches `JwtAuthGuard`/`OrganizationStatusGuard`/`PermissionsGuard` — see
+`.ai/BE/features/platform-admin.md`. An org token and a platform token are mutually rejected on each
+other's routes.
+
 Request/response DTOs live under `modules/<name>/dto/*.dto.ts` — see each feature file's Key files section
 for exact filenames. The table below is a human-readable summary; `/docs` is the authoritative, always-current
 reference.
 
 | Method | Path | Auth required | Request DTO | Response DTO | Error cases | Source |
 |---|---|---|---|---|---|---|
-| POST | `/api/auth/register` | No (`@Public()`) | `RegisterDto`: `{ name, email, password (min 8) }` — `role` not accepted from client, always `CUSTOMER` | `201 AuthResponseDto: { accessToken, user: { id, name, email, role } }` | `401` if email already registered | `backend/src/modules/auth/auth.controller.ts`, `auth.service.ts` |
-| POST | `/api/auth/login` | No (`@Public()`) | `LoginDto`: `{ email, password (min 8) }` | `201 AuthResponseDto` — **not 200**: Nest's default status for `@Post()` with no `@HttpCode()` override is `201`, never overridden here, so login also returns `201` despite not creating anything | `401` if user not found or password mismatch | `backend/src/modules/auth/auth.controller.ts`, `auth.service.ts` |
+| POST | `/api/auth/register` | No (`@Public()`), but **off by default** (`ALLOW_PUBLIC_REGISTRATION=false` → `403`) | `RegisterDto`: `{ name, email, password (min 8), organizationSlug }` — `role` not accepted from client, always `CUSTOMER`; `organizationSlug` must reference an existing `ACTIVE` org | `201 AuthResponseDto: { accessToken, user: { id, name, email, role, organizationId }, organization }` | `401` if email already registered; `403` if disabled; `404` if `organizationSlug` invalid/inactive | `backend/src/modules/auth/auth.controller.ts`, `auth.service.ts` |
+| POST | `/api/auth/login` | No (`@Public()`) — succeeds even for a `PENDING`/`SUSPENDED`/`REJECTED` org | `LoginDto`: `{ email, password (min 8) }` | `201 AuthResponseDto` — **not 200**: Nest's default status for `@Post()` with no `@HttpCode()` override is `201`, never overridden here, so login also returns `201` despite not creating anything | `401` if user not found or password mismatch | `backend/src/modules/auth/auth.controller.ts`, `auth.service.ts` |
+| POST | `/api/organizations/signup` | No (`@Public()`), 5/min | `CreateOrganizationSignupDto`: `{ organizationName, slug, adminName, adminEmail, adminPassword, contactPhone? }` | `201 OrganizationSignupResponseDto: { organization, user }` — no `accessToken` | `400` invalid/reserved slug; `409` slug or email taken; `429` | `backend/src/modules/organizations/organizations.controller.ts`, `organizations.service.ts` |
+| GET | `/api/organizations/me` | JWT only (`@AllowInactiveOrganization()` — works for any status) | none | `200 MyOrganizationResponseDto: { name, slug, status, trialStartsAt, trialEndsAt }` | `401`; `404` if org not found | `backend/src/modules/organizations/organizations.controller.ts` |
+| POST | `/api/platform/auth/login` | No (`@Public()`), 10/min | `PlatformLoginDto`: `{ email, password }` | `201 PlatformLoginResponseDto: { accessToken, admin }` | `401`; `429` | `backend/src/modules/platform/platform-auth.controller.ts` |
+| GET | `/api/platform/stats` | Platform admin only | none | `200 PlatformStatsResponseDto: { total, pending, active, suspended, rejected }` | `401` | `backend/src/modules/platform/platform-organizations.controller.ts` |
+| GET | `/api/platform/organizations` | Platform admin only | Query: `status?`, `q?`, `page?`, `limit?` | `200 OrganizationListResponseDto` | `401` | `backend/src/modules/platform/platform-organizations.controller.ts` |
+| GET | `/api/platform/organizations/:id` | Platform admin only | none | `200 OrganizationResponseDto` | `401`; `404` | `backend/src/modules/platform/platform-organizations.controller.ts` |
+| PATCH | `/api/platform/organizations/:id/approve` | Platform admin only | none | `200 OrganizationResponseDto` (status → `ACTIVE`) | `400` if not `PENDING`; `401`; `404` | `backend/src/modules/platform/platform-organizations.controller.ts` |
+| PATCH | `/api/platform/organizations/:id/reject` | Platform admin only | `RejectOrganizationDto`: `{ reason? }` | `200 OrganizationResponseDto` (status → `REJECTED`) | `400` if not `PENDING`; `401`; `404` | `backend/src/modules/platform/platform-organizations.controller.ts` |
+| PATCH | `/api/platform/organizations/:id/suspend` | Platform admin only | `SuspendOrganizationDto`: `{ reason? }` | `200 OrganizationResponseDto` (status → `SUSPENDED`) | `400` if not `ACTIVE`; `401`; `404` | `backend/src/modules/platform/platform-organizations.controller.ts` |
+| PATCH | `/api/platform/organizations/:id/reactivate` | Platform admin only | none | `200 OrganizationResponseDto` (status → `ACTIVE`) | `400` if not `SUSPENDED`; `401`; `404` | `backend/src/modules/platform/platform-organizations.controller.ts` |
+| GET | `/api/platform/organizations/:id/usage` | Platform admin only | none | `200 OrganizationUsageResponseDto` — counts + `lastActivityAt` only, never records | `401`; `404` | `backend/src/modules/platform/platform-organizations.controller.ts`, `organization-usage.service.ts` |
 | GET | `/api/leads` | `LEADS:view` | Query: `page` (default `'1'`), `limit` (default `'20'`) | `200 LeadListResponseDto: { data: LeadResponseDto[], meta: PaginationMetaDto }` | `401` if token missing/invalid; `403` if role lacks `LEADS:view` | `backend/src/modules/leads/leads.controller.ts`, `leads.service.ts` |
 | POST | `/api/leads` | `LEADS:write` | `CreateLeadDto`: `{ name, phone, email?, source?, notes? }` | `201 LeadResponseDto` | `401`/`403`; `400` if `name`/`phone` missing | `backend/src/modules/leads/leads.controller.ts`, `leads.service.ts` |
 | PATCH | `/api/leads/:id/status` | `LEADS:write` | `UpdateLeadStatusDto`: `{ status }` (not enum-validated) | `200 LeadResponseDto` (or `null` if `id` not found) | `401`/`403`; no explicit 404 handling — returns `null` body if not found | `backend/src/modules/leads/leads.controller.ts`, `leads.service.ts` |
@@ -63,6 +83,18 @@ reference.
 | GET | `/api/permissions/me` | any authenticated user (no `@RequirePermission` — self-scoped, see `.ai/BE/features/permissions.md`) | none | `200`, array of `MyPermissionDto` — one per `Resource`, `{resource, canView, canWrite, canDelete}` | `401` | `backend/src/modules/permissions/permissions.controller.ts`, `permissions.service.ts` |
 | PATCH | `/api/permissions/:role/:resource` | `PERMISSIONS:write` (SUPERADMIN-only in practice) | `UpdatePermissionDto`: `{ canView?, canWrite?, canDelete? }` | `200 PermissionResponseDto` | `401`/`403`; `400` if `:role`/`:resource` isn't a valid enum value | `backend/src/modules/permissions/permissions.controller.ts`, `permissions.service.ts` |
 | DELETE | `/api/permissions/:role/:resource` | `PERMISSIONS:delete` (SUPERADMIN-only in practice) | none | `200 PermissionResponseDto` or `200 null` if no row existed | `401`/`403`; `400` if `:role`/`:resource` isn't a valid enum value | `backend/src/modules/permissions/permissions.controller.ts`, `permissions.service.ts` |
+| GET | `/api/health` | No (`@Public()`, unthrottled) | none | `200 HealthResponseDto: { status: 'ok', timestamp }` | `503` if MongoDB unreachable | `backend/src/modules/health/health.controller.ts` |
+
+**2026-08-24: every route above can now also return `429`** (`@nestjs/throttler`, 300 req/min per
+IP by default, 20/min on `auth/register`+`auth/login`) — body
+`{"statusCode":429,"message":"ThrottlerException: Too Many Requests"}`. Not listed per-row above to
+avoid duplicating it 30 times; see `.ai/BE/features/production-hardening.md`.
+
+**2026-08-27: every org-scoped route above (i.e. everything except `/api/platform/*` and the two
+`/api/organizations/*` public/inactive-allowed routes) can now also return `403` with a structured
+`code`**: `{"statusCode":403,"message":"...","code":"ORGANIZATION_PENDING"}` (or `_SUSPENDED`,
+`_REJECTED`, `_NOT_FOUND`) — the caller's organization isn't `ACTIVE`. Not listed per-row above for
+the same reason as the `429` note; see `.ai/BE/features/multi-tenancy.md`.
 
 ## Notes
 

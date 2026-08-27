@@ -41,10 +41,17 @@ visibly labeled. See `.ai/BE/FEATURES.md` and `.ai/FE/FEATURES.md` for exact sta
   token as `Authorization: Bearer <token>` on every route except those marked `@Public()` (currently only
   `register`/`login`). Role-based restriction (`RolesGuard` + `@Roles()`) is implemented but not yet applied
   to any specific route. See `.ai/BE/features/auth.md`.
-- **Organization model:** this is a **single-organization** system, not multi-tenant. Every record
-  (`User.organizationId`, `Lead.organizationId`) is stamped with the same constant organization id
-  (env var `DEFAULT_ORGANIZATION_ID`, default `'default'`). There is no per-tenant isolation logic and none
-  is intended.
+- **Organization model — resolved 2026-08-27, reversing the statement that used to be here.** This is
+  now a **real multi-tenant** system: any number of independent organizations can sign up
+  (`POST /api/organizations/signup`, pending master-admin approval) and get fully isolated data.
+  Every business record's `organizationId` is a real `Organization.slug`, enforced at the schema
+  level (`required: true`, no default) and filtered on every query — not the hardcoded `'default'`
+  constant this bullet used to describe. The legacy single-org data still exists, now as the
+  `default`-slug organization (env var `DEFAULT_ORGANIZATION_ID`), with zero migration needed since
+  every pre-existing record already stored that exact string. A separate "platform admin" identity
+  manages organization lifecycle + usage analytics, with no access to any org's business data. See
+  `.ai/BE/features/multi-tenancy.md` and `.ai/BE/features/platform-admin.md` for the full design;
+  billing/plan-limits and real subdomain routing remain deferred, see *Scaling & deployment* below.
 
 ## Running both projects locally
 
@@ -83,14 +90,25 @@ MongoDB must be reachable at `MONGODB_URI` (e.g. run it separately via
 | Variable | Purpose |
 |---|---|
 | `MONGODB_URI` | Mongoose connection string |
-| `JWT_SECRET` | Secret used to sign/verify auth JWTs |
+| `JWT_SECRET` | Secret used to sign/verify auth JWTs — **required as of 2026-08-24**: boot now throws if unset (previously silently fell back to a hardcoded value, a real security bug — see `.ai/BE/features/production-hardening.md`) |
 | `JWT_EXPIRES_IN` | JWT expiry (e.g. `15m`) |
 | `PORT` | HTTP port the Nest app listens on (default 4000) |
-| `DEFAULT_ORGANIZATION_ID` | Constant organization id stamped on seeded users (default `'default'`) |
+| `DEFAULT_ORGANIZATION_ID` | The legacy tenant's `Organization.slug` (default `'default'`) — as of 2026-08-27 this is a real org, not a constant stamped everywhere |
+| `DEFAULT_ORGANIZATION_NAME` | (2026-08-27) Display name for the legacy org, seeded once (default `'Default Organization'`) |
+| `ALLOW_PUBLIC_REGISTRATION` | (2026-08-27) `POST /auth/register` 403s unless `'true'` (default `false`) |
+| `PLATFORM_JWT_SECRET` | (2026-08-27) Signs platform-admin tokens — **required**, boot throws if unset, separate secret from `JWT_SECRET` |
+| `PLATFORM_JWT_EXPIRES_IN` | (2026-08-27) Platform admin token expiry (default `30m`) |
+| `SEED_PLATFORM_ADMIN` | (2026-08-27) If not `'false'`, seeds one platform admin account on boot |
+| `PLATFORM_ADMIN_EMAIL` / `PLATFORM_ADMIN_NAME` / `PLATFORM_ADMIN_PASSWORD` | (2026-08-27) The seeded platform admin's credentials |
+| `TRIAL_PERIOD_DAYS` | (2026-08-27) Trial length set on org signup (default `14`) — not yet enforced (Stage 2) |
+| `ORG_STATUS_CACHE_TTL_MS` | (2026-08-27) In-process cache TTL for `OrganizationStatusGuard`'s org-status lookup (default `30000`) |
 | `SEED_USERS` | If not `'false'`, seeds the 7 default role accounts on every boot |
 | `SEED_DEFAULT_PASSWORD` | Password used for all seeded accounts except superadmin (if not overridden) |
 | `SEED_SUPERADMIN_EMAIL` | Email for the seeded superadmin account |
 | `SEED_SUPERADMIN_PASSWORD` | Password for the seeded superadmin account |
+| `ALLOWED_ORIGINS` | (2026-08-24) Comma-separated CORS allow-list, `'*'` for any origin (default `http://localhost:3000`) |
+| `THROTTLE_TTL_MS` / `THROTTLE_LIMIT` | (2026-08-24) Rate-limit window/count, per IP (defaults 60000 / 300) |
+| `MONGO_MAX_POOL_SIZE` / `MONGO_MIN_POOL_SIZE` / `MONGO_SERVER_SELECTION_TIMEOUT_MS` / `MONGO_SOCKET_TIMEOUT_MS` / `MONGO_AUTO_INDEX` | (2026-08-24) MongoDB connection tuning, defaults match the driver's own defaults |
 
 ### Frontend (`frontend/.env.example`)
 
@@ -105,8 +123,9 @@ MongoDB must be reachable at `MONGODB_URI` (e.g. run it separately via
 | **Lead** | A prospective customer inquiry, tracked through a sales pipeline (`LeadStatus`). |
 | **Lead status** | One of `NEW`, `CONTACTED`, `SITE_VISIT`, `QUOTATION_SENT`, `NEGOTIATION`, `WON`, `LOST` (`backend/src/common/contracts/index.ts`). |
 | **Project stage** | One of `PLANNING`, `FOUNDATION`, `STRUCTURE`, `BRICKWORK`, `PLUMBING`, `ELECTRICAL`, `FLOORING`, `PAINTING`, `INTERIOR`, `INSPECTION`, `HANDOVER` — defined in shared contracts but **no Projects module exists yet** to use it. |
-| **Role** | One of `SUPERADMIN`, `ADMIN`, `SALES`, `PROJECT_MANAGER`, `SUPERVISOR`, `ACCOUNTANT`, `CUSTOMER`. Stored on `User.role`; not currently enforced by any guard. |
-| **Organization** | A single fixed tenant id stamped on all records; this system is single-org, not multi-tenant. |
+| **Role** | One of `SUPERADMIN`, `ADMIN`, `SALES`, `PROJECT_MANAGER`, `SUPERVISOR`, `ACCOUNTANT`, `CUSTOMER` — an **org-scoped** role, distinct from the separate platform-admin identity below. Stored on `User.role`, enforced by `PermissionsGuard`. |
+| **Organization** | A real tenant — `name`, a unique immutable `slug` (stored as `organizationId` on every business record), and a lifecycle `status` (`PENDING\|ACTIVE\|SUSPENDED\|REJECTED`). Created via self-serve signup, approved by the platform admin. See `.ai/BE/features/multi-tenancy.md`. |
+| **Platform admin (master-admin)** | A separate, org-independent identity (its own `PlatformAdmin` collection, its own `PLATFORM_JWT_SECRET`) that manages organization lifecycle and sees usage analytics — never business data. See `.ai/BE/features/platform-admin.md`. |
 
 ## Roadmap decisions (confirmed 2026-08-08, updated 2026-08-08)
 
@@ -355,11 +374,129 @@ exists) and temporary grants reverted. The dashboard's "restore the Manager colu
 turned out to be moot — that table was already removed in the 2026-08-10 dashboard redesign, replaced by a
 slim summary card with no table at all. Full detail: `.ai/FE/features/projects.md`.
 
+**Production-hardening pass shipped, 2026-08-24 (later still) — user-directed, resuming after the
+`/projects` PM/supervisor work above.** The user asked point-blank whether this repo was
+production-level and could handle "millions of traffic." Honest answer, given after an audit: no —
+zero DB indexes outside `Permission`, no security middleware, no rate limiting, no health check, no
+connection tuning, and a `test` script referencing `jest` without it ever being installed (zero
+`*.spec.ts` existed). The user asked to proceed on a plan built from that audit. Went through
+`EnterPlanMode`: an Explore-equivalent direct read of every schema/service/`main.ts`/`app.module.ts`,
+then a dedicated Plan agent (run on Opus, per user request) that additionally **found and verified a
+real, independent security bug** while designing the fix — `AuthModule`'s `JwtModule` registration
+read `process.env.JWT_SECRET` at `import`-time (decorator evaluation), before `app.module.ts`'s own
+body ran `ConfigModule.forRoot()`, so unless `JWT_SECRET` was already in the OS-level environment
+(not just `.env`), every JWT was silently signed with a hardcoded fallback. Confirmed live by both
+the Plan agent and independently by direct code read before including it. Asked the user explicitly
+via `AskUserQuestion` whether to fix it in this pass, given it invalidates every existing session —
+confirmed yes.
+
+Shipped: the JWT fix (`JwtModule.registerAsync` + `ConfigService`, boot now throws if `JWT_SECRET` is
+unset); Mongoose indexes on every collection matching actual query patterns (`{organizationId,
+createdAt}` as the base pattern, plus targeted extras — full table in `.ai/BE/DATA_MODEL.md`);
+`helmet`/`compression`/an env-driven CORS allow-list (`ALLOWED_ORIGINS`) in place of `origin: true`;
+per-IP rate limiting (`@nestjs/throttler`, 300/min default, 20/min on login/register — deliberately
+no code-level exemption for verification scripts, since an exemption that ships is one an attacker
+can use too); a hand-rolled `GET /api/health` (not `@nestjs/terminus` — see
+`.ai/BE/features/production-hardening.md` for why); Mongo connection tuning + graceful shutdown; and
+a real Jest test harness (`jest.config.js`, `tsconfig.build.json`, 3 starter specs covering
+quotation-totals math, the permissions guard's allow/deny logic, and the health endpoint). Installed
+new packages with `--legacy-peer-deps` — this repo's `package-lock.json` already carried a peer
+conflict (`@nestjs/swagger@8.1.1` wants Nest `^10`, this repo runs `^11`) predating this pass, just
+newly triggered by npm's stricter resolver; not fixed here (out of scope, would mean bumping
+`@nestjs/swagger`).
+
+Verified live and manually, matching this repo's no-CI convention: indexes confirmed via
+`getIndexes()` + one `explain()` showing `IXSCAN` not `COLLSCAN`; boot confirmed to fail fast and
+cleanly with `JWT_SECRET` stripped from `.env` (both via `tsx` — which turned out to be the wrong
+tool, an unrelated esbuild/decorator-metadata limitation — and correctly via the compiled `dist`
+build); helmet headers + CORS allow/deny + gzip (on a large response; the small `/leads` response
+correctly stayed uncompressed, under the 1KB threshold) all curl-verified; `/docs` confirmed still
+renders with CSP disabled; rate limiting confirmed by hammering `/auth/login` past its 20/min limit
+and getting a clean `429` with a plain-string `message` (compatible with the frontend's
+`Array.isArray(body.message)` toast logic); graceful shutdown confirmed via `SIGINT` with no hang;
+`npm test` green (12/12 across 3 specs); `npm run build` clean with zero `*.spec.js` leaked into
+`dist/`. Finally, one of this session's own earlier verification scripts (the `/projects`
+PM/supervisor one, 14 assertions) was re-run end-to-end against the now-hardened backend to confirm
+none of this broke the established workflow — passed 14/14 again, only needing the login-route
+throttle window to clear first (a side effect of the throttle test itself, not a bug). Full detail:
+`.ai/BE/features/production-hardening.md`.
+
+**Explicitly out of scope for this pass, named not dropped:** frontend request-caching/dedup (no
+SWR/React Query — every page still re-fetches on mount), `ClassSerializerInterceptor` response-DTO
+enforcement, structured request logging, broader test coverage, DB-backed e2e tests — all Phase 2,
+in-repo, later. Real horizontal scale is Phase 3 and cannot be produced by further repo edits alone;
+see *Scaling & deployment (out of repo)* below.
+
+**Multi-tenancy Stage 1 shipped, 2026-08-27 — user-directed, a major pivot.** The user asked to turn
+this into a multi-tenant SaaS: themself as platform "master-admin," any number of independent
+construction companies signing up and getting isolated instances. This directly reverses the
+"single-organization, none intended" decision recorded above and pulls Phase 4 forward from
+`.ai/PRODUCT_SPEC.md`'s original ordering. Eight product decisions were nailed down via
+`AskUserQuestion` before any design work: self-serve signup pending master-admin approval; paid
+plans from day one (Stage 2, not this pass); plans gating both usage limits and features (Stage 2);
+a free trial before payment; master-admin gets lifecycle + usage analytics only, never business
+data; one account per organization (no multi-org membership); a pending org's user can log in but is
+fully locked out of data; per-organization subdomains (Stage 3, not this pass).
+
+Went through `EnterPlanMode` twice: an initial direct-research pass (confirmed the permission system
+was already tenant-aware at the data-model level — `Permission` already had a per-org index, and the
+JWT already carried the user's real `organizationId`; only every *other* module's controllers
+hardcoded `'default'`), then a dedicated Plan agent that found the retrofit was bigger than it looked
+— every `findById`-style query was unscoped by org, not just `list()`, which would have been a live
+cross-tenant IDOR — and designed the platform-admin identity as a wholly separate collection/JWT
+secret after finding a concrete reason the "reuse `User` with `organizationId: null`" alternative
+would fail (`PATCH /permissions/:role/:resource` would honor a stray null-org grant row). Shipped:
+real per-tenant data isolation across all 9 existing modules (indexes/dev-hygiene from the prior
+hardening pass carried over cleanly — the retrofit needed no new indexes); self-serve org signup with
+compensating-write safety (no MongoDB replica set exists, so no real transaction — verified live that
+a losing email race leaves no orphan `PENDING` org); a new `OrganizationStatusGuard` in the global
+guard chain; a separate platform-admin portal (own login, own token store on the frontend, own
+JWT secret on the backend — verified live that tokens are mutually, cryptographically rejected across
+the two identities) with org lifecycle management and counts-only usage analytics. Verified live: 47
+assertions covering isolation, signup validation, identity separation, lockout, lifecycle, a
+deliberate cross-tenant IDOR check (the assertion a naive retrofit would fail), a full 8-module
+create chain in a second organization, per-org permission isolation, suspend/reactivate cache
+invalidation, and a structural "counts only, no nested records" check on the usage endpoint. Full
+detail: `.ai/BE/features/multi-tenancy.md`, `.ai/BE/features/platform-admin.md`.
+
+**Explicitly deferred, named not dropped:**
+- **Stage 2 — monetization**: `Plan`/`Subscription` models, Razorpay integration, trial-expiry
+  lockout, usage-limit and feature-gate enforcement. Trial dates are already written in Stage 1 so
+  Stage 2 has nothing to backfill.
+- **Stage 3 — real subdomains**: wildcard DNS/SSL, Next.js middleware tenant resolution. `slug` was
+  chosen as the tenant key specifically so this becomes a routing change later, not a data migration.
+- Also deferred: a real MongoDB replica set (would enable a proper signup transaction), Redis-backed
+  org-status cache (same fix as the throttler's already-documented in-memory-storage gap),
+  invite-based org member creation, org self-service rename, platform-admin audit logging.
+
 Next: connect ClickUp and populate it, get user eyes on the redesigned dashboard and every dedicated page
-(Leads/Customers/Projects/Materials/Quotations/Workers) in an actual browser (still no browser-driven
-verification anywhere in this project), start the next Phase 2 backend module (Supplier Management,
-Module 8), add a general "edit project" dialog (name/budget/dates/notes/progressPercent — `PATCH
-/projects/:id` already supports all of it), or something else — not yet decided.
+(Leads/Customers/Projects/Materials/Quotations/Workers, plus the new `/signup`/`/pending`/`/platform` pages)
+in an actual browser (still no browser-driven verification anywhere in this project), start the next
+Phase 2 backend module (Supplier Management, Module 8), begin multi-tenancy Stage 2 (billing/plans) or
+Stage 3 (subdomains), add a general "edit project" dialog (name/budget/dates/notes/progressPercent —
+`PATCH /projects/:id` already supports all of it), or something else — not yet decided.
+
+## Scaling & deployment (out of repo)
+
+Added 2026-08-24, alongside the production-hardening pass above, to state plainly what that pass
+*doesn't* claim to solve: "handle millions of concurrent requests" is an infrastructure outcome, not
+a code outcome. It requires hosting/ops decisions this repo can't make for itself —
+
+- A managed or self-hosted **replicated/sharded MongoDB** (single `mongodb://localhost:27017` today).
+- **Multiple app instances behind a load balancer** — which also requires enabling `trust proxy` (so
+  the rate limiter reads the real client IP from `X-Forwarded-For` instead of the proxy's) and
+  switching the throttler's storage to `ThrottlerStorageRedisService` (today's in-memory storage is
+  per-instance, so N instances yield an effective N× rate limit).
+  - A **CDN** in front of the frontend, and possibly a shared cache (Redis) in front of read-heavy
+  backend queries.
+  - **CI** — every check in the 2026-08-24 pass (and everything before it in this log) was run
+  manually; there is still no automated pipeline.
+
+None of this is attempted or scaffolded in the repo — it's a deliberate boundary, not an oversight.
+The 2026-08-24 pass removed the in-code blockers that would make this infrastructure fail anyway
+(no indexes, no rate limiting, no health check for an orchestrator to probe, a JWT bug), so the repo
+is *ready* to sit behind this kind of infrastructure whenever it's stood up, but standing it up is a
+separate, hosting-specific effort.
 
 ## Open questions
 

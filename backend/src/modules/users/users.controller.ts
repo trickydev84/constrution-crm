@@ -1,6 +1,7 @@
 import { Controller, Get, Param, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Resource, Role } from '../../common/contracts';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { RequirePermission } from '../auth/decorators/require-permission.decorator';
 import { UserListResponseDto } from './dto/user-list-response.dto';
 import { UserResponseDto } from './dto/user-response.dto';
@@ -23,8 +24,8 @@ export class UsersController {
   @ApiQuery({ name: 'role', required: false, enum: Role, description: 'Filter to a single role, e.g. to populate a Project Manager picker' })
   @ApiResponse({ status: 200, type: UserListResponseDto })
   @ApiResponse({ status: 403, description: 'Missing USERS:view permission' })
-  list(@Query('page') page = '1', @Query('limit') limit = '20', @Query('role') role?: string) {
-    return this.service.list('default', Number(page), Number(limit), role ? { role } : {});
+  list(@CurrentUser('organizationId') organizationId: string, @Query('page') page = '1', @Query('limit') limit = '20', @Query('role') role?: string) {
+    return this.service.list(organizationId, Number(page), Number(limit), role ? { role } : {});
   }
 
   @Get(':id')
@@ -33,7 +34,7 @@ export class UsersController {
   @ApiParam({ name: 'id', example: '6a76ee8af71b6a002bc466dc' })
   @ApiResponse({ status: 200, type: UserResponseDto })
   @ApiResponse({ status: 403, description: 'Missing USERS:view permission' })
-  get(@Param('id') id: string) {
-    return this.service.findById(id);
+  get(@CurrentUser('organizationId') organizationId: string, @Param('id') id: string) {
+    return this.service.findById(organizationId, id);
   }
 }

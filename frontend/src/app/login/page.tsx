@@ -1,6 +1,7 @@
 'use client';
 
 import { FormEvent, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Building2, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -23,7 +24,7 @@ export default function LoginPage() {
     try {
       const res = await login(email, password);
       setSession(res.accessToken, res.user);
-      router.push('/');
+      router.push(res.organization && res.organization.status !== 'ACTIVE' ? '/pending' : '/');
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Login failed');
     } finally {
@@ -41,7 +42,7 @@ export default function LoginPage() {
           <CardTitle className="text-xl">
             Construct<span style={{ color: 'var(--brand-gold)' }}>ly</span>
           </CardTitle>
-          <CardDescription>Staff accounts only — see backend/README.md for seeded credentials.</CardDescription>
+          <CardDescription>Sign in to your organization.</CardDescription>
         </CardHeader>
         <CardContent>
           <form className="grid gap-4" onSubmit={handleSubmit}>
@@ -71,6 +72,9 @@ export default function LoginPage() {
               {loading && <Loader2 className="animate-spin" />}
               {loading ? 'Signing in…' : 'Sign in'}
             </Button>
+            <p className="text-center text-sm text-muted-foreground">
+              New here? <Link href="/signup" className="underline">Create an organization</Link>
+            </p>
           </form>
         </CardContent>
       </Card>

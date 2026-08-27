@@ -3,18 +3,22 @@
 
 ## Summary
 
-Login flow and client-side session storage for staff accounts. **Login-only, no signup UI** — this dashboard
-is for staff (`ADMIN`/`SALES`/`PROJECT_MANAGER`/`SUPERVISOR`/`ACCOUNTANT`), who only exist via the backend's
-startup seeder (see `.ai/BE/features/user-accounts.md`). `POST /api/auth/register` always creates a
-`CUSTOMER` account (see `.ai/BE/features/auth.md`) intended for the not-yet-built customer portal, so there's
-deliberately no "sign up" link anywhere in this app.
+Login flow and client-side session storage for org accounts. **Resolved 2026-08-27, was: "no signup
+UI, deliberately no sign up link":** that was true before multi-tenancy existed. `/login` now links to
+`/signup` (`.ai/FE/features/organization-signup.md`), since creating a brand-new organization is now
+a real, public flow. `POST /api/auth/register` (self-registering a `CUSTOMER` into an *existing* org)
+is a separate, still-unused-by-this-FE flow — see `.ai/BE/features/multi-tenancy.md`.
 
 ## User-facing behaviour
 
 - `/login` — email + password form (shadcn `Card`/`Input`/`Label`/`Button`). On success, stores the JWT and
-  user summary, then redirects to `/`. On failure (wrong credentials, or a validation error like a too-short
-  password), shows the backend's error message as a `sonner` toast (changed 2026-08-08 from inline text as
-  part of the visual redesign — see `.ai/FE/ARCHITECTURE.md`).
+  user summary; redirects to `/pending` if `organization.status !== 'ACTIVE'`, otherwise `/`. On failure
+  (wrong credentials, or a validation error like a too-short password), shows the backend's error message
+  as a `sonner` toast (changed 2026-08-08 from inline text as part of the visual redesign — see
+  `.ai/FE/ARCHITECTURE.md`). **2026-08-27:** gained a "Create an organization" link to `/signup`.
+- **2026-08-27:** any authenticated API call that comes back `403` with a `code` starting
+  `ORGANIZATION_` (org went `PENDING`/`SUSPENDED`/`REJECTED` mid-session, or was never `ACTIVE`)
+  redirects to `/pending` — see `.ai/FE/features/organization-signup.md`.
 - `/` (dashboard) — on mount, checks for a stored session; if none, redirects to `/login`. If present, shows
   the real logged-in user's name and role in the sidebar profile (replacing the old hardcoded "Arjun
   Sharma / Administrator"), and a working "Logout" via a dropdown menu on the profile block.

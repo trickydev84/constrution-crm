@@ -5,14 +5,14 @@ type ProjectInput = Omit<Partial<Project>, 'startDate' | 'endDate'> & { startDat
 
 @Injectable() export class ProjectsService {
   constructor(@InjectModel(Project.name) private model: Model<ProjectDocument>, private customers: CustomersService) {}
-  list(organizationId='default', page=1, limit=20) { const filter={ organizationId }; return Promise.all([this.model.find(filter).sort({ createdAt: -1 }).skip((page-1)*limit).limit(limit).exec(), this.model.countDocuments(filter)]).then(([data,total])=>({ data, meta:{ page, limit, total }})); }
-  findById(id: string) { return this.model.findById(id).exec(); }
-  update(id: string, data: ProjectInput) { return this.model.findByIdAndUpdate(id, data, { new: true }).exec(); }
-  updateStage(id: string, stage: string) { return this.model.findByIdAndUpdate(id, { stage }, { new: true }).exec(); }
+  list(organizationId: string, page=1, limit=20) { const filter={ organizationId }; return Promise.all([this.model.find(filter).sort({ createdAt: -1 }).skip((page-1)*limit).limit(limit).exec(), this.model.countDocuments(filter)]).then(([data,total])=>({ data, meta:{ page, limit, total }})); }
+  findById(organizationId: string, id: string) { return this.model.findOne({ _id: id, organizationId }).exec(); }
+  update(organizationId: string, id: string, data: ProjectInput) { return this.model.findOneAndUpdate({ _id: id, organizationId }, data, { new: true }).exec(); }
+  updateStage(organizationId: string, id: string, stage: string) { return this.model.findOneAndUpdate({ _id: id, organizationId }, { stage }, { new: true }).exec(); }
 
-  async create(data: ProjectInput) {
-    const customer = await this.customers.findById(data.customerId!);
+  async create(organizationId: string, data: ProjectInput) {
+    const customer = await this.customers.findById(organizationId, data.customerId!);
     if (!customer) throw new NotFoundException('Customer not found');
-    return this.model.create(data);
+    return this.model.create({ ...data, organizationId });
   }
 }

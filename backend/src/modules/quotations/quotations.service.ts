@@ -13,7 +13,7 @@ const round2 = (n: number) => Math.round(n * 100) / 100;
 export class QuotationsService {
   constructor(@InjectModel(Quotation.name) private model: Model<QuotationDocument>, private leads: LeadsService) {}
 
-  list(organizationId = 'default', page = 1, limit = 20) {
+  list(organizationId: string, page = 1, limit = 20) {
     const filter = { organizationId };
     return Promise.all([
       this.model.find(filter).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).exec(),
@@ -21,16 +21,17 @@ export class QuotationsService {
     ]).then(([data, total]) => ({ data, meta: { page, limit, total } }));
   }
 
-  findById(id: string) {
-    return this.model.findById(id).exec();
+  findById(organizationId: string, id: string) {
+    return this.model.findOne({ _id: id, organizationId }).exec();
   }
 
-  async create(data: QuotationInput) {
-    const lead = await this.leads.findById(data.leadId!);
+  async create(organizationId: string, data: QuotationInput) {
+    const lead = await this.leads.findById(organizationId, data.leadId!);
     if (!lead) throw new NotFoundException('Lead not found');
     const totals = this.computeTotals(data.lineItems ?? [], data.taxPercent ?? 0, data.discountPercent ?? 0);
     return this.model.create({
       leadId: data.leadId,
+      organizationId,
       lineItems: totals.lineItems,
       taxPercent: data.taxPercent ?? 0,
       discountPercent: data.discountPercent ?? 0,
@@ -43,15 +44,15 @@ export class QuotationsService {
     });
   }
 
-  async update(id: string, data: QuotationInput) {
-    const existing = await this.model.findById(id).exec();
+  async update(organizationId: string, id: string, data: QuotationInput) {
+    const existing = await this.model.findOne({ _id: id, organizationId }).exec();
     if (!existing) return null;
     const lineItems = data.lineItems ?? existing.lineItems;
     const taxPercent = data.taxPercent ?? existing.taxPercent;
     const discountPercent = data.discountPercent ?? existing.discountPercent;
     const totals = this.computeTotals(lineItems, taxPercent, discountPercent);
-    return this.model.findByIdAndUpdate(
-      id,
+    return this.model.findOneAndUpdate(
+      { _id: id, organizationId },
       {
         ...(data.notes !== undefined ? { notes: data.notes } : {}),
         ...(data.terms !== undefined ? { terms: data.terms } : {}),

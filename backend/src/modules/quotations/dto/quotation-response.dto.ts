@@ -35,7 +35,7 @@ export class QuotationResponseDto {
   @ApiPropertyOptional({ example: '50% advance, balance on completion' })
   terms?: string;
 
-  @ApiProperty({ example: 'default' })
+  @ApiProperty({ example: 'acme-builders', description: 'Organization.slug this record belongs to.' })
   organizationId!: string;
 
   @ApiProperty()

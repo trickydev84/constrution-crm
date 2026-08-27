@@ -16,7 +16,7 @@ export class UserResponseDto {
   @ApiProperty({ enum: Role, example: Role.PROJECT_MANAGER })
   role!: string;
 
-  @ApiProperty({ example: 'default' })
+  @ApiProperty({ example: 'acme-builders', description: 'Organization.slug this record belongs to.' })
   organizationId!: string;
 
   @ApiProperty({ example: true })

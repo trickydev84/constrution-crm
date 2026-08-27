@@ -5,12 +5,15 @@ type SeedUser = { name: string; email: string; role: string; password: string };
 @Injectable() export class UsersService implements OnModuleInit {
   private readonly logger = new Logger(UsersService.name);
   constructor(@InjectModel(User.name) private model: Model<UserDocument>) {}
+  // Deliberately global, not org-scoped — email is unique across the whole platform (one account =
+  // one organization, per product decision), and login/signup must look a user up by email before
+  // any organization context exists.
   findByEmail(email: string) { return this.model.findOne({ email: email.toLowerCase() }).exec(); }
-  create(data: Partial<User>) { return this.model.create(data); }
+  create(organizationId: string, data: Partial<User>) { return this.model.create({ ...data, organizationId }); }
 
   // Both exclude the password hash — this is the first public HTTP surface for User documents
   // (previously only AuthModule read them, via findByEmail above, which still returns it).
-  list(organizationId = 'default', page = 1, limit = 20, filter: { role?: string } = {}) {
+  list(organizationId: string, page = 1, limit = 20, filter: { role?: string } = {}) {
     const query = { organizationId, ...filter };
     return Promise.all([
       this.model.find(query).select('-password').sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).exec(),
@@ -18,19 +21,20 @@ type SeedUser = { name: string; email: string; role: string; password: string };
     ]).then(([data, total]) => ({ data, meta: { page, limit, total } }));
   }
 
-  findById(id: string) {
-    return this.model.findById(id).select('-password').exec();
+  findById(organizationId: string, id: string) {
+    return this.model.findOne({ _id: id, organizationId }).select('-password').exec();
   }
 
   async onModuleInit() {
     if (process.env.SEED_USERS === 'false') return;
+    const organizationId = process.env.DEFAULT_ORGANIZATION_ID || 'default';
     const users = this.seedUsers();
     let created = 0;
     for (const user of users) {
       const email = user.email.toLowerCase();
       const existing = await this.findByEmail(email);
       if (existing) continue;
-      await this.model.create({ ...user, email, password: await bcrypt.hash(user.password, 12), organizationId: process.env.DEFAULT_ORGANIZATION_ID || 'default', active: true });
+      await this.model.create({ ...user, email, password: await bcrypt.hash(user.password, 12), organizationId, active: true });
       created += 1;
     }
     this.logger.log(`User seeder complete: ${created} user(s) created, ${users.length - created} already existed.`);

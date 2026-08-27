@@ -131,7 +131,8 @@ export type Permission = {
 
 export type MyPermission = { resource: string; canView: boolean; canWrite: boolean; canDelete: boolean };
 
-export type LoginResponse = { accessToken: string; user: AuthUser };
+export type LoginOrganization = { name: string; slug: string; status: string; trialEndsAt: string | null };
+export type LoginResponse = { accessToken: string; user: AuthUser; organization: LoginOrganization | null };
 
 export class ApiError extends Error {}
 
@@ -159,6 +160,15 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
       if (typeof window !== 'undefined') window.location.assign('/login');
     }
 
+    // A pending/suspended/rejected organization's user can still log in (401 above doesn't apply —
+    // the token is valid), but every other route 403s with a stable `code` so the FE can route to a
+    // holding screen instead of showing a raw "Missing permission" toast on every call.
+    if (res.status === 403 && typeof body.code === 'string' && body.code.startsWith('ORGANIZATION_')) {
+      if (typeof window !== 'undefined' && window.location.pathname !== '/pending') {
+        window.location.assign('/pending');
+      }
+    }
+
     throw new ApiError(message || `Request failed (${res.status})`);
   }
   return res.status === 204 ? (null as T) : res.json();
@@ -166,6 +176,26 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
 export function login(email: string, password: string) {
   return request<LoginResponse>('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) });
+}
+
+export type MyOrganization = { name: string; slug: string; status: string; trialStartsAt?: string; trialEndsAt: string | null };
+
+export function getMyOrganization() {
+  return request<MyOrganization>('/organizations/me');
+}
+
+export function signupOrganization(input: {
+  organizationName: string;
+  slug: string;
+  adminName: string;
+  adminEmail: string;
+  adminPassword: string;
+  contactPhone?: string;
+}) {
+  return request<{ organization: { name: string; slug: string; status: string }; user: { id: string; name: string; email: string } }>(
+    '/organizations/signup',
+    { method: 'POST', body: JSON.stringify(input) },
+  );
 }
 
 export function listLeads(page = 1, limit = 200) {

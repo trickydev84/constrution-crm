@@ -23,8 +23,9 @@ export class Quotation {
   @Prop({ default: 0 }) total!: number;
   @Prop() notes?: string;
   @Prop() terms?: string;
-  @Prop({ default: 'default' }) organizationId!: string;
+  @Prop({ required: true }) organizationId!: string;
 }
 
 export type QuotationDocument = HydratedDocument<Quotation>;
 export const QuotationSchema = SchemaFactory.createForClass(Quotation);
+QuotationSchema.index({ organizationId: 1, createdAt: -1 });

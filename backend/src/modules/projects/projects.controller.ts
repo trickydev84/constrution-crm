@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Resource } from '../../common/contracts';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { RequirePermission } from '../auth/decorators/require-permission.decorator';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { ProjectListResponseDto } from './dto/project-list-response.dto';
@@ -22,8 +23,8 @@ export class ProjectsController {
   @ApiQuery({ name: 'limit', required: false, example: '20' })
   @ApiResponse({ status: 200, type: ProjectListResponseDto })
   @ApiResponse({ status: 403, description: 'Missing PROJECTS:view permission' })
-  list(@Query('page') page = '1', @Query('limit') limit = '20') {
-    return this.service.list('default', Number(page), Number(limit));
+  list(@CurrentUser('organizationId') organizationId: string, @Query('page') page = '1', @Query('limit') limit = '20') {
+    return this.service.list(organizationId, Number(page), Number(limit));
   }
 
   @Get(':id')
@@ -32,8 +33,8 @@ export class ProjectsController {
   @ApiParam({ name: 'id', example: '6a76fb0e59f18410a51761a1' })
   @ApiResponse({ status: 200, type: ProjectResponseDto })
   @ApiResponse({ status: 403, description: 'Missing PROJECTS:view permission' })
-  get(@Param('id') id: string) {
-    return this.service.findById(id);
+  get(@CurrentUser('organizationId') organizationId: string, @Param('id') id: string) {
+    return this.service.findById(organizationId, id);
   }
 
   @Post()
@@ -42,8 +43,8 @@ export class ProjectsController {
   @ApiResponse({ status: 201, type: ProjectResponseDto })
   @ApiResponse({ status: 403, description: 'Missing PROJECTS:write permission' })
   @ApiResponse({ status: 404, description: 'Customer not found' })
-  create(@Body() dto: CreateProjectDto) {
-    return this.service.create(dto);
+  create(@CurrentUser('organizationId') organizationId: string, @Body() dto: CreateProjectDto) {
+    return this.service.create(organizationId, dto);
   }
 
   @Patch(':id')
@@ -52,8 +53,8 @@ export class ProjectsController {
   @ApiParam({ name: 'id', example: '6a76fb0e59f18410a51761a1' })
   @ApiResponse({ status: 200, type: ProjectResponseDto })
   @ApiResponse({ status: 403, description: 'Missing PROJECTS:write permission' })
-  update(@Param('id') id: string, @Body() dto: UpdateProjectDto) {
-    return this.service.update(id, dto);
+  update(@CurrentUser('organizationId') organizationId: string, @Param('id') id: string, @Body() dto: UpdateProjectDto) {
+    return this.service.update(organizationId, id, dto);
   }
 
   @Patch(':id/stage')
@@ -62,7 +63,7 @@ export class ProjectsController {
   @ApiParam({ name: 'id', example: '6a76fb0e59f18410a51761a1' })
   @ApiResponse({ status: 200, type: ProjectResponseDto })
   @ApiResponse({ status: 403, description: 'Missing PROJECTS:write permission' })
-  stage(@Param('id') id: string, @Body() dto: UpdateProjectStageDto) {
-    return this.service.updateStage(id, dto.stage);
+  stage(@CurrentUser('organizationId') organizationId: string, @Param('id') id: string, @Body() dto: UpdateProjectStageDto) {
+    return this.service.updateStage(organizationId, id, dto.stage);
   }
 }

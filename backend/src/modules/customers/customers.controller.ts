@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Resource } from '../../common/contracts';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { RequirePermission } from '../auth/decorators/require-permission.decorator';
 import { CustomersService } from './customers.service';
 import { CreateCustomerDto } from './dto/create-customer.dto';
@@ -21,8 +22,8 @@ export class CustomersController {
   @ApiQuery({ name: 'limit', required: false, example: '20' })
   @ApiResponse({ status: 200, type: CustomerListResponseDto })
   @ApiResponse({ status: 403, description: 'Missing CUSTOMERS:view permission' })
-  list(@Query('page') page = '1', @Query('limit') limit = '20') {
-    return this.service.list('default', Number(page), Number(limit));
+  list(@CurrentUser('organizationId') organizationId: string, @Query('page') page = '1', @Query('limit') limit = '20') {
+    return this.service.list(organizationId, Number(page), Number(limit));
   }
 
   @Get(':id')
@@ -31,8 +32,8 @@ export class CustomersController {
   @ApiParam({ name: 'id', example: '6a76f3f371b2754dd847857d' })
   @ApiResponse({ status: 200, type: CustomerResponseDto })
   @ApiResponse({ status: 403, description: 'Missing CUSTOMERS:view permission' })
-  get(@Param('id') id: string) {
-    return this.service.findById(id);
+  get(@CurrentUser('organizationId') organizationId: string, @Param('id') id: string) {
+    return this.service.findById(organizationId, id);
   }
 
   @Post()
@@ -40,8 +41,8 @@ export class CustomersController {
   @ApiOperation({ summary: 'Create a customer directly (not via lead conversion)' })
   @ApiResponse({ status: 201, type: CustomerResponseDto })
   @ApiResponse({ status: 403, description: 'Missing CUSTOMERS:write permission' })
-  create(@Body() dto: CreateCustomerDto) {
-    return this.service.create(dto);
+  create(@CurrentUser('organizationId') organizationId: string, @Body() dto: CreateCustomerDto) {
+    return this.service.create(organizationId, dto);
   }
 
   @Patch(':id')
@@ -50,7 +51,7 @@ export class CustomersController {
   @ApiParam({ name: 'id', example: '6a76f3f371b2754dd847857d' })
   @ApiResponse({ status: 200, type: CustomerResponseDto })
   @ApiResponse({ status: 403, description: 'Missing CUSTOMERS:write permission' })
-  update(@Param('id') id: string, @Body() dto: UpdateCustomerDto) {
-    return this.service.update(id, dto);
+  update(@CurrentUser('organizationId') organizationId: string, @Param('id') id: string, @Body() dto: UpdateCustomerDto) {
+    return this.service.update(organizationId, id, dto);
   }
 }

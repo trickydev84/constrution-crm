@@ -20,7 +20,7 @@ export class MaterialRequestResponseDto {
   @ApiPropertyOptional({ example: '6a76f3f371b2754dd8478577' })
   requestedBy?: string;
 
-  @ApiProperty({ example: 'default' })
+  @ApiProperty({ example: 'acme-builders', description: 'Organization.slug this record belongs to.' })
   organizationId!: string;
 
   @ApiPropertyOptional({ example: 'Needed for foundation pour next week' })

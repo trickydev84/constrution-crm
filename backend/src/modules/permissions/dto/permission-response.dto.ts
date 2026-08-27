@@ -11,7 +11,7 @@ export class PermissionResponseDto {
   @ApiProperty({ enum: Resource, example: Resource.LEADS })
   resource!: string;
 
-  @ApiProperty({ example: 'default' })
+  @ApiProperty({ example: 'acme-builders', description: 'Organization.slug this record belongs to.' })
   organizationId!: string;
 
   @ApiProperty({ example: true })

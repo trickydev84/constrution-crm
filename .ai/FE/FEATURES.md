@@ -12,11 +12,14 @@
 | Leads (FE) | `leads` | shipped (core) | `src/app/leads/page.tsx` | [features/leads.md](features/leads.md) |
 | Customers (FE) | `customers` | shipped (core) | `src/app/customers/page.tsx` | [features/customers.md](features/customers.md) |
 | Customer portal (UI) | `customer-portal` | planned | — | [features/customer-portal.md](features/customer-portal.md) |
+| Organization signup & pending approval | `organization-signup` | shipped (core) | `src/app/signup`, `src/app/pending` | [features/organization-signup.md](features/organization-signup.md) |
+| Platform admin console | `platform-admin` | shipped (core) | `src/app/platform` | [features/platform-admin.md](features/platform-admin.md) |
 
 **Not yet implemented:** dedicated pages for Suppliers, Expenses, Billing, Site Reports (all Phase 2, no
 backend module exists for any of them yet). The sidebar has a "Finance" stub entry for some of this. **Every
 Phase 1 CRM module now has a dedicated route** (Leads, Customers, Projects, Quotations, Workers), plus
-Materials (Phase 2) and Permissions.
+Materials (Phase 2) and Permissions. **2026-08-27:** multi-tenancy Stage 1 added two more standalone areas —
+org signup/pending and a wholly separate platform-admin console.
 
 **2026-08-08:** First wiring pass — real login against the backend, real leads data on the dashboard (total
 count + pipeline chart + working create form). Everything else on the dashboard remains mock, visibly
@@ -85,3 +88,13 @@ the first general-field edit capability in this FE; every other dedicated page s
 create + a narrow status/stage transition. An "Origin" column (`Converted from lead` vs. `Direct`, from
 whether `leadId` is set) makes the two creation paths visible side by side. `src/lib/api.ts` gained
 `createCustomer()`/`updateCustomer()`. See `features/customers.md`.
+
+**2026-08-27: `organization-signup` + `platform-admin` shipped — multi-tenancy Stage 1's frontend
+half.** `/signup` (org name/slug/admin credentials, auto-derived slug), `/pending` (a 3-state holding
+screen for `PENDING`/`SUSPENDED`/`REJECTED` orgs), and `lib/api.ts`'s new 403-`ORGANIZATION_*` →
+`/pending` redirect (placed beside the existing 401 → `/login` one). Separately, a wholly standalone
+`/platform` admin console (own login, own `localStorage` keys, own `platformRequest()` client that
+deliberately does not reuse `lib/api.ts`'s `request()`) with org lifecycle actions and an on-demand,
+counts-only usage dialog. Neither area touches `AppSidebar` or the dashboard shell. See
+`features/organization-signup.md`, `features/platform-admin.md`, and the backend side in
+`.ai/BE/features/multi-tenancy.md` / `.ai/BE/features/platform-admin.md`.

@@ -23,7 +23,7 @@ export class MaterialResponseDto {
   @ApiProperty({ example: 100 })
   reorderLevel!: number;
 
-  @ApiProperty({ example: 'default' })
+  @ApiProperty({ example: 'acme-builders', description: 'Organization.slug this record belongs to.' })
   organizationId!: string;
 
   @ApiPropertyOptional({ example: 'Store in a dry place' })

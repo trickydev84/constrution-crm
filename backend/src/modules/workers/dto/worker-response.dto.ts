@@ -26,7 +26,7 @@ export class WorkerResponseDto {
   @ApiPropertyOptional({ example: 4, minimum: 1, maximum: 5 })
   rating?: number;
 
-  @ApiProperty({ example: 'default' })
+  @ApiProperty({ example: 'acme-builders', description: 'Organization.slug this record belongs to.' })
   organizationId!: string;
 
   @ApiPropertyOptional({ example: 'Experienced with RCC work' })

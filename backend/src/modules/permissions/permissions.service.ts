@@ -39,7 +39,7 @@ export class PermissionsService implements OnModuleInit {
     return doc.canDelete;
   }
 
-  listMatrix(organizationId = 'default') {
+  listMatrix(organizationId: string) {
     return this.model.find({ organizationId }).sort({ role: 1, resource: 1 }).exec();
   }
 
@@ -72,7 +72,13 @@ export class PermissionsService implements OnModuleInit {
 
   async onModuleInit() {
     if (process.env.SEED_PERMISSIONS === 'false') return;
-    const organizationId = process.env.DEFAULT_ORGANIZATION_ID || 'default';
+    await this.seedOrganization(process.env.DEFAULT_ORGANIZATION_ID || 'default');
+  }
+
+  // Extracted from onModuleInit so a newly signed-up organization (OrganizationsService.signup())
+  // gets the same starter SUPERADMIN grants as the legacy default org, not just the one seeded at
+  // boot time. Idempotent, same as the boot-time seeder.
+  async seedOrganization(organizationId: string) {
     let created = 0;
     for (const row of DEFAULT_MATRIX) {
       const existing = await this.model.findOne({ role: row.role, resource: row.resource, organizationId }).exec();
@@ -80,6 +86,6 @@ export class PermissionsService implements OnModuleInit {
       await this.model.create({ ...row, organizationId });
       created += 1;
     }
-    this.logger.log(`Permission seeder complete: ${created} row(s) created, ${DEFAULT_MATRIX.length - created} already existed.`);
+    this.logger.log(`Permission seeder complete for '${organizationId}': ${created} row(s) created, ${DEFAULT_MATRIX.length - created} already existed.`);
   }
 }

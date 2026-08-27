@@ -63,12 +63,19 @@ change, not an additive one. See `.ai/BE/CHANGELOG.md`.
   row, so the stakes justify the stricter schema); `organizationId` (default `'default'`); `canView`,
   `canWrite`, `canDelete` (all default `false`). Unique compound index on `{role, resource, organizationId}`.
 - `backend/src/modules/permissions/permissions.service.ts` — `check()` (the guard's hot path — one
-  `findOne().lean()` per protected request), `listMatrix()`, `update()` (upsert), `remove()` (added
-  2026-08-08, `findOneAndDelete`), `myPermissions()` (added 2026-08-08 later same day — one row per
+  `findOne().lean()` per protected request), `listMatrix(organizationId)`, `update()` (upsert), `remove()`
+  (added 2026-08-08, `findOneAndDelete`), `myPermissions()` (added 2026-08-08 later same day — one row per
   `Resource` enum value for a given role, defaulted to all-`false` if no stored row; hardcoded fully-granted
   for SUPERADMIN rather than a DB read), `onModuleInit()` (idempotent seed, mirrors `UsersService`'s exact
   pattern, gated by new env var `SEED_PERMISSIONS`). The default seed matrix (`DEFAULT_MATRIX` constant in
   this file) is the actual source of truth for what ships — see Known gaps for the per-role rationale.
+  **2026-08-27:** `listMatrix()`/`update()`/`remove()` now take a real `organizationId` from the
+  caller (via `@CurrentUser('organizationId')` in the controller) instead of a hardcoded `'default'`
+  literal — closing a previously-latent bug where any org's SUPERADMIN could have edited another
+  org's permission matrix once real multi-tenancy existed. The seeding loop was also extracted into a
+  reusable `seedOrganization(organizationId)` method so `onModuleInit()` and org signup
+  (`.ai/BE/features/multi-tenancy.md`) share one implementation — a new org gets the same starter
+  SUPERADMIN rows the legacy org does.
 - `backend/src/modules/permissions/guards/permissions.guard.ts` — `PermissionsGuard`. No `@RequirePermission`
   metadata on a route → allow (same fail-open convention `RolesGuard` already had for missing `@Roles()`
   metadata — see Known gaps). SUPERADMIN → allow, no DB query. Otherwise → `PermissionsService.check()`,

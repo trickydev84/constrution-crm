@@ -178,6 +178,18 @@ only — no change to what data is fetched, when, or how errors are surfaced at 
   `.ai/FE/features/authentication.md` Known gaps) where an expired token plus a broken Logout button left the
   user stuck with no way back to the login screen. Explicitly excludes `/auth/*` endpoints, since a `401`
   from `login`/`register` means "wrong credentials," not "session expired."
+- **2026-08-27: a `403` with `code` starting `ORGANIZATION_` redirects to `/pending`** — same `request()`
+  helper, same pattern as the `401` handling right above it, added when multi-tenancy shipped
+  (`.ai/BE/features/multi-tenancy.md`). A pending/suspended/rejected org's user gets one consistent
+  holding screen instead of a different "Missing permission" toast on every dashboard widget's failed
+  fetch.
+- **2026-08-27: the platform-admin console runs a second, deliberately separate API client and token
+  store** (`lib/platform-api.ts` / `lib/platform-auth.ts`) rather than reusing `lib/api.ts`/`lib/auth.ts`.
+  This mirrors the backend's two-JWT-secret split (`.ai/BE/features/platform-admin.md`) on the
+  frontend — an org session and a platform session use different `localStorage` keys and different
+  401-redirect targets (`/login` vs. `/platform/login`), so the two identities can't accidentally
+  cross-contaminate on the client either. `/platform`'s pages also don't render `AppSidebar` or any
+  part of the org-facing dashboard shell — a standalone top bar instead.
 
 ## Trade-offs / observations
 

@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Resource } from '../../common/contracts';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { RequirePermission } from '../auth/decorators/require-permission.decorator';
 import { CreateWorkerDto } from './dto/create-worker.dto';
 import { UpdateWorkerAvailabilityDto } from './dto/update-worker-availability.dto';
@@ -22,8 +23,8 @@ export class WorkersController {
   @ApiQuery({ name: 'limit', required: false, example: '20' })
   @ApiResponse({ status: 200, type: WorkerListResponseDto })
   @ApiResponse({ status: 403, description: 'Missing WORKERS:view permission' })
-  list(@Query('page') page = '1', @Query('limit') limit = '20') {
-    return this.service.list('default', Number(page), Number(limit));
+  list(@CurrentUser('organizationId') organizationId: string, @Query('page') page = '1', @Query('limit') limit = '20') {
+    return this.service.list(organizationId, Number(page), Number(limit));
   }
 
   @Get(':id')
@@ -32,8 +33,8 @@ export class WorkersController {
   @ApiParam({ name: 'id', example: '6a76ff0e59f18410a51761d1' })
   @ApiResponse({ status: 200, type: WorkerResponseDto })
   @ApiResponse({ status: 403, description: 'Missing WORKERS:view permission' })
-  get(@Param('id') id: string) {
-    return this.service.findById(id);
+  get(@CurrentUser('organizationId') organizationId: string, @Param('id') id: string) {
+    return this.service.findById(organizationId, id);
   }
 
   @Post()
@@ -41,8 +42,8 @@ export class WorkersController {
   @ApiOperation({ summary: 'Create a worker profile' })
   @ApiResponse({ status: 201, type: WorkerResponseDto })
   @ApiResponse({ status: 403, description: 'Missing WORKERS:write permission' })
-  create(@Body() dto: CreateWorkerDto) {
-    return this.service.create(dto);
+  create(@CurrentUser('organizationId') organizationId: string, @Body() dto: CreateWorkerDto) {
+    return this.service.create(organizationId, dto);
   }
 
   @Patch(':id')
@@ -51,8 +52,8 @@ export class WorkersController {
   @ApiParam({ name: 'id', example: '6a76ff0e59f18410a51761d1' })
   @ApiResponse({ status: 200, type: WorkerResponseDto })
   @ApiResponse({ status: 403, description: 'Missing WORKERS:write permission' })
-  update(@Param('id') id: string, @Body() dto: UpdateWorkerDto) {
-    return this.service.update(id, dto);
+  update(@CurrentUser('organizationId') organizationId: string, @Param('id') id: string, @Body() dto: UpdateWorkerDto) {
+    return this.service.update(organizationId, id, dto);
   }
 
   @Patch(':id/availability')
@@ -61,7 +62,7 @@ export class WorkersController {
   @ApiParam({ name: 'id', example: '6a76ff0e59f18410a51761d1' })
   @ApiResponse({ status: 200, type: WorkerResponseDto })
   @ApiResponse({ status: 403, description: 'Missing WORKERS:write permission' })
-  availability(@Param('id') id: string, @Body() dto: UpdateWorkerAvailabilityDto) {
-    return this.service.updateAvailability(id, dto.availabilityStatus);
+  availability(@CurrentUser('organizationId') organizationId: string, @Param('id') id: string, @Body() dto: UpdateWorkerAvailabilityDto) {
+    return this.service.updateAvailability(organizationId, id, dto.availabilityStatus);
   }
 }

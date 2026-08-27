@@ -11,7 +11,7 @@ export class MaterialRequestsService {
     private materials: MaterialsService,
   ) {}
 
-  list(organizationId = 'default', page = 1, limit = 20, filter: { projectId?: string; status?: string } = {}) {
+  list(organizationId: string, page = 1, limit = 20, filter: { projectId?: string; status?: string } = {}) {
     const query = { organizationId, ...filter };
     return Promise.all([
       this.model.find(query).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).exec(),
@@ -19,38 +19,38 @@ export class MaterialRequestsService {
     ]).then(([data, total]) => ({ data, meta: { page, limit, total } }));
   }
 
-  findById(id: string) {
-    return this.model.findById(id).exec();
+  findById(organizationId: string, id: string) {
+    return this.model.findOne({ _id: id, organizationId }).exec();
   }
 
-  async create(data: Partial<MaterialRequest>) {
-    const material = await this.materials.findById(data.materialId!);
+  async create(organizationId: string, data: Partial<MaterialRequest>) {
+    const material = await this.materials.findById(organizationId, data.materialId!);
     if (!material) throw new NotFoundException('Material not found');
-    return this.model.create({ ...data, status: 'REQUESTED' });
+    return this.model.create({ ...data, organizationId, status: 'REQUESTED' });
   }
 
-  async approve(id: string) {
-    const request = await this.findById(id);
+  async approve(organizationId: string, id: string) {
+    const request = await this.findById(organizationId, id);
     if (!request) throw new NotFoundException('Material request not found');
     if (request.status !== 'REQUESTED') throw new BadRequestException(`Only a REQUESTED request can be approved (current status: ${request.status})`);
-    return this.model.findByIdAndUpdate(id, { status: 'APPROVED' }, { new: true }).exec();
+    return this.model.findOneAndUpdate({ _id: id, organizationId }, { status: 'APPROVED' }, { new: true }).exec();
   }
 
-  async reject(id: string) {
-    const request = await this.findById(id);
+  async reject(organizationId: string, id: string) {
+    const request = await this.findById(organizationId, id);
     if (!request) throw new NotFoundException('Material request not found');
     if (request.status === 'FULFILLED' || request.status === 'REJECTED') {
       throw new BadRequestException(`Cannot reject a request that is already ${request.status}`);
     }
-    return this.model.findByIdAndUpdate(id, { status: 'REJECTED' }, { new: true }).exec();
+    return this.model.findOneAndUpdate({ _id: id, organizationId }, { status: 'REJECTED' }, { new: true }).exec();
   }
 
-  async fulfill(id: string) {
-    const request = await this.findById(id);
+  async fulfill(organizationId: string, id: string) {
+    const request = await this.findById(organizationId, id);
     if (!request) throw new NotFoundException('Material request not found');
     if (request.status !== 'APPROVED') throw new BadRequestException(`Only an APPROVED request can be fulfilled (current status: ${request.status})`);
-    const decremented = await this.materials.decrementStock(request.materialId, request.quantity);
+    const decremented = await this.materials.decrementStock(organizationId, request.materialId, request.quantity);
     if (!decremented) throw new BadRequestException('Insufficient stock to fulfill this request');
-    return this.model.findByIdAndUpdate(id, { status: 'FULFILLED' }, { new: true }).exec();
+    return this.model.findOneAndUpdate({ _id: id, organizationId }, { status: 'FULFILLED' }, { new: true }).exec();
   }
 }

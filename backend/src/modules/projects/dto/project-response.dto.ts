@@ -32,7 +32,7 @@ export class ProjectResponseDto {
   @ApiPropertyOptional({ example: 0, minimum: 0, maximum: 100 })
   progressPercent?: number;
 
-  @ApiProperty({ example: 'default' })
+  @ApiProperty({ example: 'acme-builders', description: 'Organization.slug this record belongs to.' })
   organizationId!: string;
 
   @ApiPropertyOptional({ example: 'Client requested premium fittings' })

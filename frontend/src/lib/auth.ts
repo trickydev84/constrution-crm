@@ -1,4 +1,4 @@
-export type AuthUser = { id: string; name: string; email: string; role: string };
+export type AuthUser = { id: string; name: string; email: string; role: string; organizationId: string };
 
 const TOKEN_KEY = 'ccrm.token';
 const USER_KEY = 'ccrm.user';

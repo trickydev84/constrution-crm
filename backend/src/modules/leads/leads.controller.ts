@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Resource } from '../../common/contracts';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { RequirePermission } from '../auth/decorators/require-permission.decorator';
 import { CustomerResponseDto } from '../customers/dto/customer-response.dto';
 import { CreateLeadDto } from './dto/create-lead.dto';
@@ -22,8 +23,8 @@ export class LeadsController {
   @ApiQuery({ name: 'limit', required: false, example: '20' })
   @ApiResponse({ status: 200, type: LeadListResponseDto })
   @ApiResponse({ status: 403, description: 'Missing LEADS:view permission' })
-  list(@Query('page') page = '1', @Query('limit') limit = '20') {
-    return this.service.list('default', Number(page), Number(limit));
+  list(@CurrentUser('organizationId') organizationId: string, @Query('page') page = '1', @Query('limit') limit = '20') {
+    return this.service.list(organizationId, Number(page), Number(limit));
   }
 
   @Post()
@@ -31,8 +32,8 @@ export class LeadsController {
   @ApiOperation({ summary: 'Create a lead' })
   @ApiResponse({ status: 201, type: LeadResponseDto })
   @ApiResponse({ status: 403, description: 'Missing LEADS:write permission' })
-  create(@Body() dto: CreateLeadDto) {
-    return this.service.create(dto);
+  create(@CurrentUser('organizationId') organizationId: string, @Body() dto: CreateLeadDto) {
+    return this.service.create(organizationId, dto);
   }
 
   @Patch(':id/status')
@@ -41,8 +42,8 @@ export class LeadsController {
   @ApiParam({ name: 'id', example: '6a76f3f371b2754dd8478577' })
   @ApiResponse({ status: 200, type: LeadResponseDto })
   @ApiResponse({ status: 403, description: 'Missing LEADS:write permission' })
-  status(@Param('id') id: string, @Body() dto: UpdateLeadStatusDto) {
-    return this.service.updateStatus(id, dto.status);
+  status(@CurrentUser('organizationId') organizationId: string, @Param('id') id: string, @Body() dto: UpdateLeadStatusDto) {
+    return this.service.updateStatus(organizationId, id, dto.status);
   }
 
   @Post(':id/convert')
@@ -57,7 +58,7 @@ export class LeadsController {
   @ApiResponse({ status: 403, description: 'Missing LEADS:write permission' })
   @ApiResponse({ status: 404, description: 'Lead not found' })
   @ApiResponse({ status: 409, description: 'Lead already converted to a customer' })
-  convert(@Param('id') id: string) {
-    return this.service.convertToCustomer(id);
+  convert(@CurrentUser('organizationId') organizationId: string, @Param('id') id: string) {
+    return this.service.convertToCustomer(organizationId, id);
   }
 }

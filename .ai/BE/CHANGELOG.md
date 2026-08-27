@@ -6,6 +6,79 @@ reconstructed. The entry below reflects the current state of `backend/` as a sin
 
 ## [Unreleased]
 
+### ⚠ Breaking (2026-08-27) — multi-tenancy Stage 1
+
+- **Every business collection now requires a real `organizationId`** (`Organization.slug`); the
+  `@Prop({default:'default'})` schema defaults are gone. No data migration needed — every existing
+  document already stored `'default'` at write time, verified via a pre-flight
+  `countDocuments({organizationId:{$exists:false}})===0` check on all 9 collections before shipping.
+- **Every `GET/PATCH/DELETE .../:id` route is now organization-scoped**, not just list endpoints —
+  `findById`-style queries were previously unscoped by org (a live cross-tenant IDOR once real
+  multi-tenancy existed). A caller now gets `null`/404 for another org's record instead of the
+  record itself.
+- **New `OrganizationStatusGuard`** in the global guard chain (after `JwtAuthGuard`, before
+  `PermissionsGuard`) — any route can now return `403` with `code: 'ORGANIZATION_PENDING'`/
+  `'_SUSPENDED'`/`'_REJECTED'`/`'_NOT_FOUND'` if the caller's organization isn't `ACTIVE`.
+- **`POST /auth/register` is now off by default** (`ALLOW_PUBLIC_REGISTRATION=false` → `403`); when
+  enabled it requires a new required `organizationSlug` field.
+- **`permissions.controller.ts`'s `list()`/`update()`/`remove()`** now use the caller's real
+  organization instead of a hardcoded `'default'` — a previously-latent bug where any org's
+  SUPERADMIN could edit another org's permission matrix, closed before it could be exploited (no
+  second real org existed yet).
+
+### Added (2026-08-27) — multi-tenancy Stage 1
+
+- **New `organizations` module**: self-serve org signup (`POST /api/organizations/signup`, public,
+  creates an `Organization` in `PENDING` status + its first `SUPERADMIN` user, no accessToken
+  returned), `GET /api/organizations/me` (works even for a non-`ACTIVE` org). `Organization` schema
+  with a `PENDING/ACTIVE/SUSPENDED/REJECTED` state machine, trial date tracking (unenforced pending
+  Stage 2), and an in-process TTL-cached status lookup for the new guard.
+- **New `platform` module**: a wholly separate "master-admin" identity — own `PlatformAdmin`
+  collection, own `PLATFORM_JWT_SECRET`, own guard (`PlatformAdminGuard`). `POST
+  /api/platform/auth/login`, `GET /api/platform/stats`, `GET/PATCH /api/platform/organizations[/:id[/approve|reject|suspend|reactivate|usage]]`.
+  Usage endpoint returns counts and timestamps only, never business records — enforced by only
+  injecting raw Mongoose models, never the business modules' services.
+- `@CurrentUser()` param decorator (`backend/src/modules/auth/decorators/current-user.decorator.ts`)
+  — reads `request.user`, used across ~35 retrofitted handlers with zero Swagger/OpenAPI churn
+  (custom param decorators are invisible to the generator).
+- `login`/`register` responses gained `user.organizationId` and a top-level `organization:
+  {name, slug, status, trialEndsAt}` — JWT claims unchanged, so pre-existing tokens keep working.
+- New env vars: `PLATFORM_JWT_SECRET` (required, boot fails without it — same pattern as
+  `JWT_SECRET`), `PLATFORM_JWT_EXPIRES_IN`, `SEED_PLATFORM_ADMIN`, `PLATFORM_ADMIN_EMAIL`/`_NAME`/
+  `_PASSWORD`, `DEFAULT_ORGANIZATION_NAME`, `TRIAL_PERIOD_DAYS`, `ORG_STATUS_CACHE_TTL_MS`,
+  `ALLOW_PUBLIC_REGISTRATION`.
+- Two new Jest specs: `organization-status.guard.spec.ts`, `platform-admin.guard.spec.ts` — the
+  latter's load-bearing assertion is that an org-secret-signed token is cryptographically rejected by
+  `PlatformAdminGuard`, not filtered by a field check.
+
+### Security (2026-08-24)
+
+- **Fixed: `JWT_SECRET` was silently ignored, tokens signed with a hardcoded fallback.**
+  `AuthModule`'s `JwtModule.register({ secret: process.env.JWT_SECRET || 'dev-secret' })` read
+  `process.env` at decorator-evaluation time — before `app.module.ts`'s `ConfigModule.forRoot()`
+  had loaded `.env`. Fixed via `JwtModule.registerAsync({ inject: [ConfigService], useFactory })`,
+  which resolves at module-instantiation time instead, and now throws at boot if `JWT_SECRET` is
+  unset. **Breaking: invalidates every existing session** — all users must log in again.
+- **Rate limiting added** (`@nestjs/throttler`): 300 req/min per IP globally, 20/min on
+  `POST /auth/register`/`POST /auth/login`. In-memory, per-instance (documented gap).
+- **CORS is now an allow-list** (`ALLOWED_ORIGINS` env var), not `origin: true`. Default preserves
+  local dev (`http://localhost:3000`).
+- `helmet` added (security headers; CSP disabled — breaks Swagger UI's inline script, low value for
+  a JSON API).
+
+### Added (2026-08-24)
+
+- Mongoose indexes on every collection except `Permission` (already indexed), matching each
+  service's actual `list()` filter/sort — see `.ai/BE/DATA_MODEL.md`.
+- `GET /api/health` — public, unthrottled liveness/readiness probe (`Connection.readyState` +
+  `admin().ping()`). New `modules/health/`.
+- `compression()` (gzip), `app.enableShutdownHooks()` (graceful shutdown), Mongo connection options
+  (`maxPoolSize` etc., env-configurable).
+- Real Jest test harness (`jest.config.js`, `tsconfig.build.json`, `@nestjs/testing`/`ts-jest`/
+  `supertest`) — `npm test` previously referenced `jest` without it being installed; zero
+  `*.spec.ts` existed. Three starter specs: quotation-totals math, the permissions guard's
+  allow/deny logic, and the health endpoint. Full detail: `.ai/BE/features/production-hardening.md`.
+
 ### Added (2026-08-10)
 
 - **`GET /api/users` and `GET /api/users/:id`** — the first public HTTP surface for `User` documents

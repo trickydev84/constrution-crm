@@ -19,7 +19,7 @@ export class CustomerResponseDto {
   @ApiPropertyOptional({ example: '6a76f3f371b2754dd8478577', description: 'The Lead._id this customer was converted from, if any.' })
   leadId?: string;
 
-  @ApiProperty({ example: 'default' })
+  @ApiProperty({ example: 'acme-builders', description: 'Organization.slug this record belongs to.' })
   organizationId!: string;
 
   @ApiPropertyOptional({ example: 'Prefers WhatsApp over email' })

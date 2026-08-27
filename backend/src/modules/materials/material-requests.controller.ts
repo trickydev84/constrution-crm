@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Resource } from '../../common/contracts';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { RequirePermission } from '../auth/decorators/require-permission.decorator';
 import { CreateMaterialRequestDto } from './dto/create-material-request.dto';
 import { MaterialRequestListResponseDto } from './dto/material-request-list-response.dto';
@@ -23,6 +24,7 @@ export class MaterialRequestsController {
   @ApiResponse({ status: 200, type: MaterialRequestListResponseDto })
   @ApiResponse({ status: 403, description: 'Missing MATERIALS:view permission' })
   list(
+    @CurrentUser('organizationId') organizationId: string,
     @Query('page') page = '1',
     @Query('limit') limit = '20',
     @Query('projectId') projectId?: string,
@@ -31,7 +33,7 @@ export class MaterialRequestsController {
     const filter: { projectId?: string; status?: string } = {};
     if (projectId) filter.projectId = projectId;
     if (status) filter.status = status;
-    return this.service.list('default', Number(page), Number(limit), filter);
+    return this.service.list(organizationId, Number(page), Number(limit), filter);
   }
 
   @Get(':id')
@@ -40,8 +42,8 @@ export class MaterialRequestsController {
   @ApiParam({ name: 'id', example: '6a76ff0e59f18410a51761f1' })
   @ApiResponse({ status: 200, type: MaterialRequestResponseDto })
   @ApiResponse({ status: 403, description: 'Missing MATERIALS:view permission' })
-  get(@Param('id') id: string) {
-    return this.service.findById(id);
+  get(@CurrentUser('organizationId') organizationId: string, @Param('id') id: string) {
+    return this.service.findById(organizationId, id);
   }
 
   @Post()
@@ -50,8 +52,8 @@ export class MaterialRequestsController {
   @ApiResponse({ status: 201, type: MaterialRequestResponseDto })
   @ApiResponse({ status: 403, description: 'Missing MATERIALS:write permission' })
   @ApiResponse({ status: 404, description: 'Material not found' })
-  create(@Body() dto: CreateMaterialRequestDto) {
-    return this.service.create(dto);
+  create(@CurrentUser('organizationId') organizationId: string, @Body() dto: CreateMaterialRequestDto) {
+    return this.service.create(organizationId, dto);
   }
 
   @Patch(':id/approve')
@@ -62,8 +64,8 @@ export class MaterialRequestsController {
   @ApiResponse({ status: 400, description: 'Request is not in REQUESTED status' })
   @ApiResponse({ status: 403, description: 'Missing MATERIALS:write permission' })
   @ApiResponse({ status: 404, description: 'Material request not found' })
-  approve(@Param('id') id: string) {
-    return this.service.approve(id);
+  approve(@CurrentUser('organizationId') organizationId: string, @Param('id') id: string) {
+    return this.service.approve(organizationId, id);
   }
 
   @Patch(':id/reject')
@@ -74,8 +76,8 @@ export class MaterialRequestsController {
   @ApiResponse({ status: 400, description: 'Request is already FULFILLED or REJECTED' })
   @ApiResponse({ status: 403, description: 'Missing MATERIALS:write permission' })
   @ApiResponse({ status: 404, description: 'Material request not found' })
-  reject(@Param('id') id: string) {
-    return this.service.reject(id);
+  reject(@CurrentUser('organizationId') organizationId: string, @Param('id') id: string) {
+    return this.service.reject(organizationId, id);
   }
 
   @Patch(':id/fulfill')
@@ -89,7 +91,7 @@ export class MaterialRequestsController {
   @ApiResponse({ status: 400, description: 'Request is not APPROVED, or current stock is less than the requested quantity' })
   @ApiResponse({ status: 403, description: 'Missing MATERIALS:write permission' })
   @ApiResponse({ status: 404, description: 'Material request not found' })
-  fulfill(@Param('id') id: string) {
-    return this.service.fulfill(id);
+  fulfill(@CurrentUser('organizationId') organizationId: string, @Param('id') id: string) {
+    return this.service.fulfill(organizationId, id);
   }
 }

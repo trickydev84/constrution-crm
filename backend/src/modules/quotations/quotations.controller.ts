@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Resource } from '../../common/contracts';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { RequirePermission } from '../auth/decorators/require-permission.decorator';
 import { CreateQuotationDto } from './dto/create-quotation.dto';
 import { QuotationListResponseDto } from './dto/quotation-list-response.dto';
@@ -21,8 +22,8 @@ export class QuotationsController {
   @ApiQuery({ name: 'limit', required: false, example: '20' })
   @ApiResponse({ status: 200, type: QuotationListResponseDto })
   @ApiResponse({ status: 403, description: 'Missing QUOTATIONS:view permission' })
-  list(@Query('page') page = '1', @Query('limit') limit = '20') {
-    return this.service.list('default', Number(page), Number(limit));
+  list(@CurrentUser('organizationId') organizationId: string, @Query('page') page = '1', @Query('limit') limit = '20') {
+    return this.service.list(organizationId, Number(page), Number(limit));
   }
 
   @Get(':id')
@@ -31,8 +32,8 @@ export class QuotationsController {
   @ApiParam({ name: 'id', example: '6a76fd0e59f18410a51761c3' })
   @ApiResponse({ status: 200, type: QuotationResponseDto })
   @ApiResponse({ status: 403, description: 'Missing QUOTATIONS:view permission' })
-  get(@Param('id') id: string) {
-    return this.service.findById(id);
+  get(@CurrentUser('organizationId') organizationId: string, @Param('id') id: string) {
+    return this.service.findById(organizationId, id);
   }
 
   @Post()
@@ -44,8 +45,8 @@ export class QuotationsController {
   @ApiResponse({ status: 201, type: QuotationResponseDto })
   @ApiResponse({ status: 403, description: 'Missing QUOTATIONS:write permission' })
   @ApiResponse({ status: 404, description: 'Lead not found' })
-  create(@Body() dto: CreateQuotationDto) {
-    return this.service.create(dto);
+  create(@CurrentUser('organizationId') organizationId: string, @Body() dto: CreateQuotationDto) {
+    return this.service.create(organizationId, dto);
   }
 
   @Patch(':id')
@@ -57,7 +58,7 @@ export class QuotationsController {
   @ApiParam({ name: 'id', example: '6a76fd0e59f18410a51761c3' })
   @ApiResponse({ status: 200, type: QuotationResponseDto })
   @ApiResponse({ status: 403, description: 'Missing QUOTATIONS:write permission' })
-  update(@Param('id') id: string, @Body() dto: UpdateQuotationDto) {
-    return this.service.update(id, dto);
+  update(@CurrentUser('organizationId') organizationId: string, @Param('id') id: string, @Body() dto: UpdateQuotationDto) {
+    return this.service.update(organizationId, id, dto);
   }
 }

@@ -1,6 +1,7 @@
-import { Body, Controller, Delete, Get, Param, ParseEnumPipe, Patch, Req } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseEnumPipe, Patch } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Resource, Role } from '../../common/contracts';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { RequirePermission } from '../auth/decorators/require-permission.decorator';
 import { MyPermissionDto } from './dto/my-permission.dto';
 import { PermissionResponseDto } from './dto/permission-response.dto';
@@ -21,8 +22,8 @@ export class PermissionsController {
   })
   @ApiResponse({ status: 200, type: [PermissionResponseDto], description: 'A plain array, not the {data,meta} paginated shape used elsewhere — this is a small bounded set (roles × resources), not a growing collection.' })
   @ApiResponse({ status: 403, description: 'Caller\'s role lacks PERMISSIONS:view' })
-  list() {
-    return this.service.listMatrix();
+  list(@CurrentUser('organizationId') organizationId: string) {
+    return this.service.listMatrix(organizationId);
   }
 
   @Get('me')
@@ -33,8 +34,8 @@ export class PermissionsController {
   })
   @ApiResponse({ status: 200, type: [MyPermissionDto], description: 'One entry per Resource enum value, including resources with no stored grant (all three flags false). SUPERADMIN always gets every resource fully granted, independent of stored rows.' })
   @ApiResponse({ status: 401, description: 'No/invalid/expired token' })
-  myPermissions(@Req() req: { user: { role: Role; organizationId: string } }) {
-    return this.service.myPermissions(req.user.role, req.user.organizationId);
+  myPermissions(@CurrentUser() user: { role: Role; organizationId: string }) {
+    return this.service.myPermissions(user.role, user.organizationId);
   }
 
   @Patch(':role/:resource')
@@ -49,11 +50,12 @@ export class PermissionsController {
   @ApiResponse({ status: 400, description: 'role or resource is not a valid enum value' })
   @ApiResponse({ status: 403, description: "Caller's role lacks PERMISSIONS:write" })
   update(
+    @CurrentUser('organizationId') organizationId: string,
     @Param('role', new ParseEnumPipe(Role)) role: Role,
     @Param('resource', new ParseEnumPipe(Resource)) resource: Resource,
     @Body() dto: UpdatePermissionDto,
   ) {
-    return this.service.update(role, resource, 'default', dto);
+    return this.service.update(role, resource, organizationId, dto);
   }
 
   @Delete(':role/:resource')
@@ -68,9 +70,10 @@ export class PermissionsController {
   @ApiResponse({ status: 400, description: 'role or resource is not a valid enum value' })
   @ApiResponse({ status: 403, description: "Caller's role lacks PERMISSIONS:delete" })
   remove(
+    @CurrentUser('organizationId') organizationId: string,
     @Param('role', new ParseEnumPipe(Role)) role: Role,
     @Param('resource', new ParseEnumPipe(Resource)) resource: Resource,
   ) {
-    return this.service.remove(role, resource, 'default');
+    return this.service.remove(role, resource, organizationId);
   }
 }

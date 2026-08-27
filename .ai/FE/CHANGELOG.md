@@ -6,6 +6,19 @@ reconstructed. The entry below reflects the current state of `frontend/` as a si
 
 ## [Unreleased]
 
+### Added (2026-08-27) — multi-tenancy Stage 1 frontend
+
+- **`/signup`** — public org-creation form; **`/pending`** — 3-state holding screen for a non-`ACTIVE`
+  organization. `lib/api.ts` gained `signupOrganization()`, `getMyOrganization()`, and a new 403-
+  `ORGANIZATION_*` → `/pending` redirect in the shared `request()` helper. `LoginResponse` gained
+  `organization`; `AuthUser` (`lib/auth.ts`) gained `organizationId`.
+- **`/platform/login` + `/platform`** — a wholly separate platform-admin console: new
+  `lib/platform-auth.ts` (own token store) and `lib/platform-api.ts` (own request client,
+  deliberately not reusing `lib/api.ts`). Org lifecycle actions (approve/reject/suspend/reactivate),
+  status-filtered organization table, stats tiles, and an on-demand counts-only usage dialog.
+- `/login` gained a "Create an organization" link to `/signup`, and its post-login redirect now
+  checks `organization.status` to route to `/pending` instead of `/` when not yet `ACTIVE`.
+
 ### Removed
 
 - **Dashboard's "＋ New lead" button and dialog** (2026-08-10, later still, superseded by `/leads`).

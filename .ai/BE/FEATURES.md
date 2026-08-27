@@ -2,7 +2,9 @@
 
 Module numbers reference `.ai/PRODUCT_SPEC.md` §Functional modules. Phase 1 = MVP; Phase 2 = second wave
 (inventory/procurement/finance/portal); Phase 3 = mobile/AI/automation (not tracked here — no backend work
-yet); Phase 4 = multi-tenant SaaS (explicitly out of scope for now).
+yet). **Phase 4 (multi-tenant SaaS) was pulled forward and its Stage 1 shipped 2026-08-27** — see
+`multi-tenancy`/`platform-admin` rows below; this deviates from the original BRD's phase ordering, by user
+request.
 
 | Feature | Slug | Status | Owner area | Detail doc |
 |---|---|---|---|---|
@@ -21,10 +23,14 @@ yet); Phase 4 = multi-tenant SaaS (explicitly out of scope for now).
 | Daily site reports | `daily-site-reports` | planned | — | [features/daily-site-reports.md](features/daily-site-reports.md) |
 | Customer portal (API) | `customer-portal` | planned | — | [features/customer-portal.md](features/customer-portal.md) |
 | Dashboard & analytics (API) | `dashboard-analytics` | planned | — | [features/dashboard-analytics.md](features/dashboard-analytics.md) |
+| Production hardening (indexes, security headers, rate limiting, health check, test harness) | `production-hardening` | shipped | `main.ts`, `app.module.ts`, `modules/health` | [features/production-hardening.md](features/production-hardening.md) |
+| Multi-tenancy (org signup/approval, per-org data isolation) | `multi-tenancy` | shipped (core) | `modules/organizations`, retrofit across 9 modules | [features/multi-tenancy.md](features/multi-tenancy.md) |
+| Platform admin (master-admin org lifecycle + usage analytics) | `platform-admin` | shipped (core) | `modules/platform` | [features/platform-admin.md](features/platform-admin.md) |
 
 **Explicitly out of scope for now** (per BRD, `.ai/PRODUCT_SPEC.md`): AI features, contractor/supplier
-marketplace, mobile-app backends, multi-tenant SaaS. Not tracked as `planned` rows until they enter an actual
-phase plan.
+marketplace, mobile-app backends. Not tracked as `planned` rows until they enter an actual phase plan.
+Multi-tenancy (formerly here too) shipped its Stage 1 2026-08-27 — see rows above; billing/plans (Stage 2)
+and real subdomain routing (Stage 3) remain deferred, see `.ai/PROJECT.md`.
 
 `lead-management` status changed from `shipped` to `in-progress`: the shipped subset (list/create/status
 update) works, but the PRD's fuller Module 2 scope (budget/location/timeline fields, lead source/assignment,
@@ -85,6 +91,34 @@ full request lifecycle/insufficient-stock/no-double-decrement/permission-denial)
 temporary grants cleaned up afterward. Still `in-progress` toward full Module 7 PRD scope: no frontend page,
 no purchase/restock endpoint (that's Supplier Management's job), no per-user audit trail on
 approve/reject/fulfill — see `features/material-inventory-management.md` Known gaps.
+
+**2026-08-24: `production-hardening` shipped — a code-only production-readiness pass**, prompted by
+the user asking whether this repo could handle "millions of traffic." Includes one real, verified
+security fix (JWT secret was silently ignored due to a module-load-ordering bug, falling back to a
+hardcoded value — every existing session is invalidated by this fix), Mongoose indexes on every
+collection's actual query pattern, `helmet`/`compression`/an env-driven CORS allow-list, per-IP rate
+limiting (`@nestjs/throttler`), a new `GET /api/health`, Mongo connection tuning + graceful
+shutdown, and a real (if minimal) Jest test harness — `npm test` previously referenced `jest`
+without it ever being installed. Deliberately does not attempt actual horizontal-scale
+infrastructure (replicated DB, load balancer, CDN, Redis) — see `.ai/PROJECT.md`. Full detail:
+`features/production-hardening.md`.
+
+**2026-08-27: `multi-tenancy` + `platform-admin` shipped (Stage 1) — Phase 4 pulled forward by user
+request.** Every business document is now genuinely tenant-scoped by `Organization.slug` (previously
+a hardcoded `'default'` constant everywhere); a repo-wide retrofit across all 9 existing modules
+closed both the obvious gap (list queries) and a less obvious one found during design — every
+`findById`/update-by-id query was unscoped, a live cross-tenant IDOR once orgs became real. New
+self-serve org signup with master-admin approval (`OrganizationStatus`: `PENDING→ACTIVE`, or
+`REJECTED`/`SUSPENDED`), enforced by a new `OrganizationStatusGuard` inserted into the global guard
+chain. New, entirely separate "platform admin" identity (own collection, own JWT secret, own guard)
+with org lifecycle management and counts-only usage analytics — deliberately zero access to any
+org's business records, verified structurally (no dependency path to business-module services) and
+live (an org token is cryptographically rejected on platform routes and vice versa). Verified live:
+47 assertions across isolation, signup validation, identity separation, lockout, lifecycle,
+cross-tenant IDOR, a full 8-module create chain, per-org permission isolation, suspend/reactivate
+cache invalidation, and the usage endpoint's structural "counts only" guarantee. Billing/plan-limits
+(Stage 2) and real per-org subdomains (Stage 3) are deferred, not built — see `.ai/PROJECT.md`. Full
+detail: `features/multi-tenancy.md`, `features/platform-admin.md`.
 
 **2026-08-10: `user-accounts` gained its first public HTTP surface.** `GET /api/users` (paginated,
 optional `?role=` filter) and `GET /api/users/:id` — read-only, no create/update/delete route. Both

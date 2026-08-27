@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Resource } from '../../common/contracts';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { RequirePermission } from '../auth/decorators/require-permission.decorator';
 import { CreateMaterialDto } from './dto/create-material.dto';
 import { MaterialListResponseDto } from './dto/material-list-response.dto';
@@ -21,8 +22,8 @@ export class MaterialsController {
   @ApiQuery({ name: 'limit', required: false, example: '20' })
   @ApiResponse({ status: 200, type: MaterialListResponseDto })
   @ApiResponse({ status: 403, description: 'Missing MATERIALS:view permission' })
-  list(@Query('page') page = '1', @Query('limit') limit = '20') {
-    return this.service.list('default', Number(page), Number(limit));
+  list(@CurrentUser('organizationId') organizationId: string, @Query('page') page = '1', @Query('limit') limit = '20') {
+    return this.service.list(organizationId, Number(page), Number(limit));
   }
 
   @Get('low-stock')
@@ -33,8 +34,8 @@ export class MaterialsController {
   })
   @ApiResponse({ status: 200, type: [MaterialResponseDto] })
   @ApiResponse({ status: 403, description: 'Missing MATERIALS:view permission' })
-  lowStock() {
-    return this.service.lowStock('default');
+  lowStock(@CurrentUser('organizationId') organizationId: string) {
+    return this.service.lowStock(organizationId);
   }
 
   @Get(':id')
@@ -43,8 +44,8 @@ export class MaterialsController {
   @ApiParam({ name: 'id', example: '6a76ff0e59f18410a51761e1' })
   @ApiResponse({ status: 200, type: MaterialResponseDto })
   @ApiResponse({ status: 403, description: 'Missing MATERIALS:view permission' })
-  get(@Param('id') id: string) {
-    return this.service.findById(id);
+  get(@CurrentUser('organizationId') organizationId: string, @Param('id') id: string) {
+    return this.service.findById(organizationId, id);
   }
 
   @Post()
@@ -52,8 +53,8 @@ export class MaterialsController {
   @ApiOperation({ summary: 'Add a material to the catalog' })
   @ApiResponse({ status: 201, type: MaterialResponseDto })
   @ApiResponse({ status: 403, description: 'Missing MATERIALS:write permission' })
-  create(@Body() dto: CreateMaterialDto) {
-    return this.service.create(dto);
+  create(@CurrentUser('organizationId') organizationId: string, @Body() dto: CreateMaterialDto) {
+    return this.service.create(organizationId, dto);
   }
 
   @Patch(':id')
@@ -65,7 +66,7 @@ export class MaterialsController {
   @ApiParam({ name: 'id', example: '6a76ff0e59f18410a51761e1' })
   @ApiResponse({ status: 200, type: MaterialResponseDto })
   @ApiResponse({ status: 403, description: 'Missing MATERIALS:write permission' })
-  update(@Param('id') id: string, @Body() dto: UpdateMaterialDto) {
-    return this.service.update(id, dto);
+  update(@CurrentUser('organizationId') organizationId: string, @Param('id') id: string, @Body() dto: UpdateMaterialDto) {
+    return this.service.update(organizationId, id, dto);
   }
 }
