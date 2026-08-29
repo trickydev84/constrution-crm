@@ -102,18 +102,33 @@ a full visual redesign, the user chose **Tailwind + shadcn/ui** specifically (ov
 continuing hand-rolled CSS) for the most "modern SaaS dashboard" look with accessible primitives out of the
 box.
 
-- **`src/app/styles.css`** is now the Tailwind entry point (`@import "tailwindcss";`) plus shadcn's design
+- **`src/app/styles.css`** is the Tailwind entry point (`@import "tailwindcss";`) plus shadcn's design
   tokens: CSS custom properties (`--background`, `--foreground`, `--primary`, `--sidebar`, etc.) defined once
   in `:root` and again in `.dark`, consumed via Tailwind's `@theme inline` block so classes like `bg-primary`
-  or `text-muted-foreground` resolve correctly in both themes automatically. **Every hand-rolled class from
-  before this pass (`.shell`, `.metric`, `.bar`, `.modalCard`, etc.) was deleted** — the whole page is now
-  Tailwind utility classes plus shadcn components, no bespoke CSS remains.
-- **Brand color layered on shadcn's neutral base**: `--primary`/`--ring`/`--sidebar-primary` were overridden
-  to a deep navy (`#14283f` light / `#7d9bc4` dark) instead of shadcn's default grayscale primary, plus a
-  standalone `--brand-gold` custom property (`#d8a94a` light / `#e6bc63` dark, **not** a semantic shadcn
-  token — used directly via `style={{ color: 'var(--brand-gold)' }}`) for a couple of small brand accents
-  (the logo mark, the header's sparkle icon). Everything else — card backgrounds, borders, muted text —
-  stays on shadcn's tuned neutral scale, unmodified.
+  or `text-muted-foreground` resolve correctly in both themes automatically. All bespoke CSS still lives in
+  exactly two hand-written `@layer components` classes (`.label-micro`, `.shadow-card`) — everything else is
+  Tailwind utilities plus shadcn components.
+- **2026-08-29: full design-system replacement, sourced from Claude Design mockups** (see
+  `.ai/FE/features/design-system.md` — Phase 1 of a 7-phase mockup-implementation plan, mechanical restyle
+  only, no behavior changes). Replaced the original navy+gold theme entirely:
+  - **Single accent** `--primary:#1B6CA8` (light and dark theme both use a blue family, not shadcn's
+    grayscale default) for navigation-active state and primary actions only — the old standalone
+    `--brand-gold` token and its 3 inline-style call sites are gone completely, not replaced with anything
+    decorative.
+  - **Dark navy sidebar** (`--sidebar:#0f1b26`) in both themes — the sidebar doesn't follow the page's
+    light/dark toggle. Hover and active nav items use different tokens (`--sidebar-accent` vs the new
+    `--sidebar-active`) since shadcn's `SidebarMenuButton` primitive maps both states to the same
+    `--sidebar-accent` token internally — the split is applied per-usage in `app-sidebar.tsx` via a
+    `className` override, not in the vendored primitive.
+  - **Status color vocabulary**: 4 new semantic token pairs (`--status-{good,warn,bad,info}-{fg,bg}`) replace
+    the hand-picked `emerald-50`/`sky-50`/etc. Tailwind classes that varied per page for the same meaning.
+  - **Fonts**: `Archivo` (variable, interface text) + `IBM Plex Mono` (`--font-mono`, every number/ID/date/
+    currency figure, applied via `font-mono tabular-nums` at each usage site) replaced `Geist`.
+  - `--radius` moved `0.7rem` → `0.875rem`. `--text-{subtle,body,faint}` and `--hairline` collapse several
+    near-duplicate gray tones used inconsistently across pages into one set of tokens.
+  - **No dark-mode mockup exists** — `.dark`'s new palette was inferred from the same navy family as the
+    light theme's sidebar, not sourced from a design reference. Flagged in `design-system.md`'s Known gaps
+    as the single highest-risk unverified surface in this pass.
 - **`components.json`**: `style: "base-nova"`, `baseColor: "neutral"`, `iconLibrary: "lucide"`,
   `cssVariables: true`, path aliases → `@/*`. This is the config the `npx shadcn add <name>` CLI reads —
   don't hand-edit generated files in `src/components/ui/` beyond trivial tweaks; re-run the CLI instead.

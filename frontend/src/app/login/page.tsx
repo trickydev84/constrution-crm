@@ -39,9 +39,7 @@ export default function LoginPage() {
           <div className="mb-2 flex size-11 items-center justify-center rounded-xl bg-primary text-primary-foreground">
             <Building2 className="size-5" />
           </div>
-          <CardTitle className="text-xl">
-            Construct<span style={{ color: 'var(--brand-gold)' }}>ly</span>
-          </CardTitle>
+          <CardTitle className="text-xl">Constructly</CardTitle>
           <CardDescription>Sign in to your organization.</CardDescription>
         </CardHeader>
         <CardContent>

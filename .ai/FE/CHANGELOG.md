@@ -6,6 +6,24 @@ reconstructed. The entry below reflects the current state of `frontend/` as a si
 
 ## [Unreleased]
 
+### Changed (2026-08-29) — design system replacement (Claude Design mockups, Phase 1)
+
+- Full visual-system replacement across all 12 routes, sourced from Claude Design mockups — see
+  `.ai/FE/features/design-system.md`. Mechanical only: no new features, endpoints, or routes; no
+  behavior changes to any create/edit/status-transition flow.
+- **New**: `lib/format.ts` (`formatINR`, `formatINRPlain`, `formatCompactINR`, `amountInWords`,
+  `formatAgeDays`, `daysBehind`) — replaces 4 duplicated local `formatINR` functions. New shared
+  components `components/{stat-card,status-badge,page-header,segmented-control,sparkline,mini-bar,
+  empty-state,not-tracked-yet}.tsx`.
+- **Changed**: `app/layout.tsx` (`Geist` → `Archivo` + `IBM Plex Mono`), `app/styles.css` (full token
+  replacement — single blue accent, dark navy sidebar in both themes, 4 status-color tokens, new
+  `--sidebar-active` token for the hover/active split), `components/app-sidebar.tsx` (gold wordmark
+  removed, active-state className override). Every other route restyled in place: local `formatINR`
+  deleted in favor of `lib/format.ts`, ad-hoc status Tailwind classes replaced with the new semantic
+  tokens, `font-mono tabular-nums` applied to currency/phone/date/count/ID figures.
+- **Removed**: `--brand-gold`/`--color-brand-gold` and its 3 inline-style call sites
+  (`app/page.tsx`'s header sparkle, `login/page.tsx` and `app-sidebar.tsx`'s "Constructly" wordmark).
+
 ### Added (2026-08-27) — multi-tenancy Stage 1 frontend
 
 - **`/signup`** — public org-creation form; **`/pending`** — 3-state holding screen for a non-`ACTIVE`

@@ -41,6 +41,7 @@ import {
   type User,
 } from '@/lib/api';
 import { getUser, type AuthUser } from '@/lib/auth';
+import { formatINR } from '@/lib/format';
 
 // Matches backend/src/common/contracts/index.ts's ProjectStage enum exactly, in pipeline order.
 // Not enum-validated by the backend (UpdateProjectStageDto accepts any string) — this list is a frontend
@@ -49,10 +50,6 @@ const PROJECT_STAGES = ['PLANNING', 'FOUNDATION', 'STRUCTURE', 'BRICKWORK', 'PLU
 
 function titleCase(value: string) {
   return value.split('_').map((w) => w.charAt(0) + w.slice(1).toLowerCase()).join(' ');
-}
-
-function formatINR(amount: number) {
-  return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(amount);
 }
 
 const EMPTY_PROJECT_FORM = { name: '', customerId: '', projectManagerId: '', supervisorId: '', budget: '', startDate: '', endDate: '', notes: '' };
@@ -349,15 +346,15 @@ export default function ProjectsPage() {
                               <div className="h-1.5 w-24 overflow-hidden rounded-full bg-muted">
                                 <div className="h-full rounded-full bg-primary" style={{ width: `${p.progressPercent}%` }} />
                               </div>
-                              <span className="text-xs text-muted-foreground">{p.progressPercent}%</span>
+                              <span className="font-mono text-xs tabular-nums text-muted-foreground">{p.progressPercent}%</span>
                             </div>
                           ) : (
                             <span className="text-xs text-muted-foreground">—</span>
                           )}
                         </TableCell>
-                        <TableCell>{p.budget != null ? formatINR(p.budget) : <span className="text-xs text-muted-foreground">—</span>}</TableCell>
-                        <TableCell className="text-muted-foreground">{p.startDate ? new Date(p.startDate).toLocaleDateString('en-IN') : '—'}</TableCell>
-                        <TableCell className="text-muted-foreground">{p.endDate ? new Date(p.endDate).toLocaleDateString('en-IN') : '—'}</TableCell>
+                        <TableCell className="font-mono tabular-nums">{p.budget != null ? formatINR(p.budget) : <span className="text-xs text-muted-foreground">—</span>}</TableCell>
+                        <TableCell className="font-mono tabular-nums text-muted-foreground">{p.startDate ? new Date(p.startDate).toLocaleDateString('en-IN') : '—'}</TableCell>
+                        <TableCell className="font-mono tabular-nums text-muted-foreground">{p.endDate ? new Date(p.endDate).toLocaleDateString('en-IN') : '—'}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

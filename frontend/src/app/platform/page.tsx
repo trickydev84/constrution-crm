@@ -42,9 +42,9 @@ import { clearPlatformSession, getPlatformAdmin, type PlatformAdmin } from '@/li
 const STATUS_FILTERS = ['ALL', 'PENDING', 'ACTIVE', 'SUSPENDED', 'REJECTED'] as const;
 
 function statusBadgeClass(status: string) {
-  if (status === 'ACTIVE') return 'border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-400';
-  if (status === 'PENDING') return 'border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-400';
-  if (status === 'SUSPENDED') return 'border-orange-300 bg-orange-50 text-orange-700 dark:border-orange-800 dark:bg-orange-950 dark:text-orange-400';
+  if (status === 'ACTIVE') return 'border-status-good-fg/30 bg-status-good-bg text-status-good-fg';
+  if (status === 'PENDING') return 'border-status-warn-fg/30 bg-status-warn-bg text-status-warn-fg';
+  if (status === 'SUSPENDED') return 'border-status-bad-fg/30 bg-status-bad-bg text-status-bad-fg';
   return 'border-border bg-muted text-muted-foreground';
 }
 
@@ -207,7 +207,7 @@ export default function PlatformDashboardPage() {
                 <CardTitle className="text-xs font-medium uppercase text-muted-foreground">{key}</CardTitle>
               </CardHeader>
               <CardContent>
-                {stats ? <p className="text-2xl font-semibold">{stats[key]}</p> : <Skeleton className="h-8 w-12" />}
+                {stats ? <p className="font-mono text-2xl font-semibold tabular-nums">{stats[key]}</p> : <Skeleton className="h-8 w-12" />}
               </CardContent>
             </Card>
           ))}
@@ -249,12 +249,12 @@ export default function PlatformDashboardPage() {
                   {orgs.map((org) => (
                     <TableRow key={org._id}>
                       <TableCell className="font-medium">{org.name}</TableCell>
-                      <TableCell className="text-muted-foreground">{org.slug}</TableCell>
+                      <TableCell className="font-mono tabular-nums text-muted-foreground">{org.slug}</TableCell>
                       <TableCell>
                         <Badge variant="outline" className={statusBadgeClass(org.status)}>{titleCase(org.status)}</Badge>
                       </TableCell>
-                      <TableCell className="text-muted-foreground">{new Date(org.createdAt).toLocaleDateString('en-IN')}</TableCell>
-                      <TableCell className="text-muted-foreground">{org.trialEndsAt ? new Date(org.trialEndsAt).toLocaleDateString('en-IN') : '—'}</TableCell>
+                      <TableCell className="font-mono tabular-nums text-muted-foreground">{new Date(org.createdAt).toLocaleDateString('en-IN')}</TableCell>
+                      <TableCell className="font-mono tabular-nums text-muted-foreground">{org.trialEndsAt ? new Date(org.trialEndsAt).toLocaleDateString('en-IN') : '—'}</TableCell>
                       <TableCell>
                         <div className="flex justify-end gap-2">
                           <Button size="sm" variant="ghost" disabled={busyId === org._id} onClick={() => openUsage(org)}>
@@ -320,17 +320,17 @@ export default function PlatformDashboardPage() {
             <Skeleton className="h-40 w-full" />
           ) : (
             <div className="grid grid-cols-2 gap-3 py-2 text-sm">
-              <div className="flex justify-between border-b pb-1"><span className="text-muted-foreground">Users</span><span className="font-medium">{usage.users}</span></div>
-              <div className="flex justify-between border-b pb-1"><span className="text-muted-foreground">Leads</span><span className="font-medium">{usage.leads}</span></div>
-              <div className="flex justify-between border-b pb-1"><span className="text-muted-foreground">Customers</span><span className="font-medium">{usage.customers}</span></div>
-              <div className="flex justify-between border-b pb-1"><span className="text-muted-foreground">Projects</span><span className="font-medium">{usage.projects}</span></div>
-              <div className="flex justify-between border-b pb-1"><span className="text-muted-foreground">Quotations</span><span className="font-medium">{usage.quotations}</span></div>
-              <div className="flex justify-between border-b pb-1"><span className="text-muted-foreground">Workers</span><span className="font-medium">{usage.workers}</span></div>
-              <div className="flex justify-between border-b pb-1"><span className="text-muted-foreground">Materials</span><span className="font-medium">{usage.materials}</span></div>
-              <div className="flex justify-between border-b pb-1"><span className="text-muted-foreground">Material requests</span><span className="font-medium">{usage.materialRequests}</span></div>
+              <div className="flex justify-between border-b pb-1"><span className="text-muted-foreground">Users</span><span className="font-mono font-medium tabular-nums">{usage.users}</span></div>
+              <div className="flex justify-between border-b pb-1"><span className="text-muted-foreground">Leads</span><span className="font-mono font-medium tabular-nums">{usage.leads}</span></div>
+              <div className="flex justify-between border-b pb-1"><span className="text-muted-foreground">Customers</span><span className="font-mono font-medium tabular-nums">{usage.customers}</span></div>
+              <div className="flex justify-between border-b pb-1"><span className="text-muted-foreground">Projects</span><span className="font-mono font-medium tabular-nums">{usage.projects}</span></div>
+              <div className="flex justify-between border-b pb-1"><span className="text-muted-foreground">Quotations</span><span className="font-mono font-medium tabular-nums">{usage.quotations}</span></div>
+              <div className="flex justify-between border-b pb-1"><span className="text-muted-foreground">Workers</span><span className="font-mono font-medium tabular-nums">{usage.workers}</span></div>
+              <div className="flex justify-between border-b pb-1"><span className="text-muted-foreground">Materials</span><span className="font-mono font-medium tabular-nums">{usage.materials}</span></div>
+              <div className="flex justify-between border-b pb-1"><span className="text-muted-foreground">Material requests</span><span className="font-mono font-medium tabular-nums">{usage.materialRequests}</span></div>
               <div className="col-span-2 flex justify-between pt-1">
                 <span className="text-muted-foreground">Last activity</span>
-                <span className="font-medium">{usage.lastActivityAt ? new Date(usage.lastActivityAt).toLocaleString('en-IN') : '—'}</span>
+                <span className="font-mono font-medium tabular-nums">{usage.lastActivityAt ? new Date(usage.lastActivityAt).toLocaleString('en-IN') : '—'}</span>
               </div>
             </div>
           )}

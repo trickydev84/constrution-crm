@@ -27,6 +27,7 @@ import {
 import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { StatusBadge } from '@/components/status-badge';
 import {
   approveMaterialRequest,
   createMaterial,
@@ -54,16 +55,10 @@ function titleCase(value: string) {
 }
 
 function statusBadge(status: string) {
-  if (status === 'FULFILLED') {
-    return <Badge className="border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-400" variant="outline">Fulfilled</Badge>;
-  }
-  if (status === 'APPROVED') {
-    return <Badge className="border-sky-300 bg-sky-50 text-sky-700 dark:border-sky-800 dark:bg-sky-950 dark:text-sky-400" variant="outline">Approved</Badge>;
-  }
-  if (status === 'REJECTED') {
-    return <Badge variant="destructive">Rejected</Badge>;
-  }
-  return <Badge variant="secondary">Requested</Badge>;
+  if (status === 'FULFILLED') return <StatusBadge tone="good">Fulfilled</StatusBadge>;
+  if (status === 'APPROVED') return <StatusBadge tone="info">Approved</StatusBadge>;
+  if (status === 'REJECTED') return <StatusBadge tone="bad">Rejected</StatusBadge>;
+  return <StatusBadge tone="neutral">Requested</StatusBadge>;
 }
 
 const EMPTY_MATERIAL_FORM = { name: '', category: 'CEMENT', unit: '', unitPrice: '', stockQuantity: '', reorderLevel: '', notes: '' };
@@ -265,10 +260,10 @@ export default function MaterialsPage() {
                 <CardTitle className="flex items-center gap-2">
                   Catalog
                   {lowStockIds.size > 0 && (
-                    <Badge variant="outline" className="border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-400">
+                    <StatusBadge tone="warn">
                       <AlertTriangle className="size-3" />
                       {lowStockIds.size} low stock
-                    </Badge>
+                    </StatusBadge>
                   )}
                 </CardTitle>
                 <p className="text-sm text-muted-foreground">Live from GET /api/materials</p>
@@ -304,19 +299,15 @@ export default function MaterialsPage() {
                       <TableRow key={m._id}>
                         <TableCell className="font-medium">{m.name}</TableCell>
                         <TableCell><Badge variant="secondary">{titleCase(m.category)}</Badge></TableCell>
-                        <TableCell className="text-muted-foreground">{m.unit}</TableCell>
-                        <TableCell>₹{m.unitPrice}</TableCell>
+                        <TableCell className="font-mono tabular-nums text-muted-foreground">{m.unit}</TableCell>
+                        <TableCell className="font-mono tabular-nums">₹{m.unitPrice}</TableCell>
                         <TableCell>
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 font-mono tabular-nums">
                             {m.stockQuantity}
-                            {lowStockIds.has(m._id) && (
-                              <Badge variant="outline" className="border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-400">
-                                Low
-                              </Badge>
-                            )}
+                            {lowStockIds.has(m._id) && <StatusBadge tone="warn">Low</StatusBadge>}
                           </div>
                         </TableCell>
-                        <TableCell className="text-muted-foreground">{m.reorderLevel}</TableCell>
+                        <TableCell className="font-mono tabular-nums text-muted-foreground">{m.reorderLevel}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -368,7 +359,7 @@ export default function MaterialsPage() {
                         <TableRow key={r._id}>
                           <TableCell className="font-medium">{projectNameById.get(r.projectId) ?? 'Unknown project'}</TableCell>
                           <TableCell>{materialNameById.get(r.materialId) ?? 'Unknown material'}</TableCell>
-                          <TableCell>{r.quantity}</TableCell>
+                          <TableCell className="font-mono tabular-nums">{r.quantity}</TableCell>
                           <TableCell>{statusBadge(r.status)}</TableCell>
                           {canWrite && (
                             <TableCell className="text-right">

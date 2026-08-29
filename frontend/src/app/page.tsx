@@ -25,6 +25,7 @@ import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/s
 import { Skeleton } from '@/components/ui/skeleton';
 import { AppSidebar } from '@/components/app-sidebar';
 import { ThemeToggle } from '@/components/theme-toggle';
+import { formatINR } from '@/lib/format';
 import {
   getMyPermissions,
   listCustomers,
@@ -59,7 +60,7 @@ const PROJECT_STAGES = ['PLANNING', 'FOUNDATION', 'STRUCTURE', 'BRICKWORK', 'PLU
 // Matches backend/src/modules/workers/worker.constants.ts's WORKER_AVAILABILITY_STATUSES.
 const WORKER_AVAILABILITY_STATUSES = ['AVAILABLE', 'ASSIGNED', 'ON_LEAVE', 'INACTIVE'];
 
-const CHART_PALETTE = ['#38bdf8', '#fbbf24', '#a78bfa', '#fb923c', '#34d399', '#f472b6', '#60a5fa', '#facc15', '#4ade80', '#f87171', '#c084fc'];
+const CHART_PALETTE = ['#1B6CA8', '#15803d', '#c2410c', '#b91c1c', '#64748b', '#4d9fd6', '#4ade80', '#fb923c', '#f87171', '#94a3b8', '#0f1b26'];
 
 // Per-module accent for the metric cards' icon badges — purely visual, no meaning beyond consistency.
 const METRIC_STYLES: Record<string, string> = {
@@ -85,10 +86,6 @@ function todayLabel() {
 // "FOUNDATION" -> "Foundation", "SITE_VISIT" -> "Site Visit"
 function titleCase(value: string) {
   return value.split('_').map((w) => w.charAt(0) + w.slice(1).toLowerCase()).join(' ');
-}
-
-function formatINR(amount: number) {
-  return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(amount);
 }
 
 function timeAgo(dateStr: string) {
@@ -317,10 +314,10 @@ export default function Dashboard() {
           <div className="flex items-start gap-2">
             <SidebarTrigger className="mt-1 md:hidden" />
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{todayLabel()}</p>
+              <p className="label-micro font-mono">{todayLabel()}</p>
               <h1 className="mt-1 text-2xl font-semibold tracking-tight">
                 {greeting()}, {user.name.split(' ')[0]}{' '}
-                <Sparkles className="inline size-5" style={{ color: 'var(--brand-gold)' }} />
+                <Sparkles className="inline size-5 text-primary" />
               </h1>
               <p className="mt-1 text-sm text-muted-foreground">Here&apos;s what&apos;s happening across your business today.</p>
             </div>
@@ -351,7 +348,7 @@ export default function Dashboard() {
                       <Skeleton className="mt-1 h-7 w-24" />
                     ) : (
                       <>
-                        <p className="text-2xl font-semibold tracking-tight">{m.value}</p>
+                        <p className="font-mono text-2xl font-semibold tabular-nums tracking-tight">{m.value}</p>
                         <p className={m.warn ? 'mt-0.5 flex items-center gap-1 text-xs text-amber-600 dark:text-amber-500' : 'mt-0.5 text-xs text-muted-foreground'}>
                           {m.warn && <AlertTriangle className="size-3" />}
                           {m.sub}
@@ -532,7 +529,7 @@ export default function Dashboard() {
                             <p className="truncate text-sm font-medium">{leadNameById.get(q.leadId) ?? 'Unknown lead'}</p>
                             <p className="truncate text-xs text-muted-foreground">{q.lineItems.length} item{q.lineItems.length === 1 ? '' : 's'}</p>
                           </div>
-                          <span className="shrink-0 text-sm font-medium">{formatINR(q.total)}</span>
+                          <span className="shrink-0 font-mono text-sm font-medium tabular-nums">{formatINR(q.total)}</span>
                         </div>
                       ))}
                     </div>
@@ -579,7 +576,7 @@ export default function Dashboard() {
                             <p className="truncate text-sm font-medium">{m.name}</p>
                             <p className="truncate text-xs text-muted-foreground">{titleCase(m.category)}</p>
                           </div>
-                          <span className="shrink-0 text-sm font-medium text-amber-600 dark:text-amber-500">{m.stockQuantity} / {m.reorderLevel} {m.unit}</span>
+                          <span className="shrink-0 font-mono text-sm font-medium tabular-nums text-status-warn-fg">{m.stockQuantity} / {m.reorderLevel} {m.unit}</span>
                         </div>
                       ))}
                     </div>
@@ -647,7 +644,7 @@ export default function Dashboard() {
                       <p className="truncate text-sm font-medium">{a.text}</p>
                       <p className="truncate text-xs text-muted-foreground">{a.detail}</p>
                     </div>
-                    <time className="shrink-0 text-xs text-muted-foreground">{timeAgo(a.createdAt)}</time>
+                    <time className="shrink-0 font-mono text-xs tabular-nums text-muted-foreground">{timeAgo(a.createdAt)}</time>
                   </div>
                 ))
               )}

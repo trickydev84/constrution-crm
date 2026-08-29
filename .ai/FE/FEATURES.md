@@ -14,12 +14,15 @@
 | Customer portal (UI) | `customer-portal` | planned | — | [features/customer-portal.md](features/customer-portal.md) |
 | Organization signup & pending approval | `organization-signup` | shipped (core) | `src/app/signup`, `src/app/pending` | [features/organization-signup.md](features/organization-signup.md) |
 | Platform admin console | `platform-admin` | shipped (core) | `src/app/platform` | [features/platform-admin.md](features/platform-admin.md) |
+| Design system (Claude Design mockups, Phase 1) | `design-system` | shipped (core) | `src/app/styles.css`, `src/lib/format.ts` | [features/design-system.md](features/design-system.md) |
 
-**Not yet implemented:** dedicated pages for Suppliers, Expenses, Billing, Site Reports (all Phase 2, no
-backend module exists for any of them yet). The sidebar has a "Finance" stub entry for some of this. **Every
-Phase 1 CRM module now has a dedicated route** (Leads, Customers, Projects, Quotations, Workers), plus
-Materials (Phase 2) and Permissions. **2026-08-27:** multi-tenancy Stage 1 added two more standalone areas —
-org signup/pending and a wholly separate platform-admin console.
+**Not yet implemented:** dedicated pages for Suppliers, Billing, Schedule, Reports, a Job detail page, and a
+client-facing quote document — all part of Phases 2–7 of the Claude-Design-mockup implementation plan (see
+`design-system.md`), no backend module exists yet for Billing/Schedule/Suppliers/Site log. The sidebar has a
+"Finance" stub entry for some of this. **Every Phase 1 CRM module now has a dedicated route** (Leads,
+Customers, Projects, Quotations, Workers), plus Materials, Permissions, and (2026-08-27) org signup/pending
+and a wholly separate platform-admin console. **2026-08-29:** every one of the routes above was restyled
+under the new design system (Phase 1 of the mockup plan) — visual only, no new routes.
 
 **2026-08-08:** First wiring pass — real login against the backend, real leads data on the dashboard (total
 count + pipeline chart + working create form). Everything else on the dashboard remains mock, visibly

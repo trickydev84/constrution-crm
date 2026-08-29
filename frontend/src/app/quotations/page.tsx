@@ -37,6 +37,7 @@ import {
   type Quotation,
 } from '@/lib/api';
 import { getUser, type AuthUser } from '@/lib/auth';
+import { formatINR } from '@/lib/format';
 
 // Matches backend/src/modules/quotations/dto/quotation-line-item.dto.ts's @IsIn(['MATERIAL', 'LABOR']).
 const QUOTATION_CATEGORIES = ['MATERIAL', 'LABOR'];
@@ -46,10 +47,6 @@ const EMPTY_LINE_ITEM: LineItemFormRow = { description: '', category: 'MATERIAL'
 
 function titleCase(value: string) {
   return value.split('_').map((w) => w.charAt(0) + w.slice(1).toLowerCase()).join(' ');
-}
-
-function formatINR(amount: number) {
-  return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(amount);
 }
 
 // Client-side mirror of QuotationsService.computeTotals() — discount applied before tax, same as the
@@ -279,9 +276,9 @@ export default function QuotationsPage() {
                       <TableRow key={q._id}>
                         <TableCell className="font-medium">{leadNameById.get(q.leadId) ?? 'Unknown lead'}</TableCell>
                         <TableCell className="text-muted-foreground">{q.lineItems.length} item{q.lineItems.length === 1 ? '' : 's'}</TableCell>
-                        <TableCell>{formatINR(q.subtotal)}</TableCell>
-                        <TableCell className="text-muted-foreground">{q.taxPercent}% / {q.discountPercent}%</TableCell>
-                        <TableCell className="font-medium">{formatINR(q.total)}</TableCell>
+                        <TableCell className="font-mono tabular-nums">{formatINR(q.subtotal)}</TableCell>
+                        <TableCell className="font-mono tabular-nums text-muted-foreground">{q.taxPercent}% / {q.discountPercent}%</TableCell>
+                        <TableCell className="font-mono font-medium tabular-nums">{formatINR(q.total)}</TableCell>
                         <TableCell className="text-right">
                           <Button size="icon" variant="ghost" onClick={() => setViewingQuotation(q)} title="View details">
                             <Eye className="size-4" />
@@ -417,10 +414,10 @@ export default function QuotationsPage() {
                 <p className="mb-1 text-xs text-muted-foreground">
                   Preview — computed the same way the backend will; the numbers it actually saves win.
                 </p>
-                <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span>{formatINR(preview.subtotal)}</span></div>
-                <div className="flex justify-between"><span className="text-muted-foreground">Discount</span><span>−{formatINR(preview.discountAmount)}</span></div>
-                <div className="flex justify-between"><span className="text-muted-foreground">Tax</span><span>+{formatINR(preview.taxAmount)}</span></div>
-                <div className="mt-1 flex justify-between border-t pt-1 font-medium"><span>Total</span><span>{formatINR(preview.total)}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span className="font-mono tabular-nums">{formatINR(preview.subtotal)}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Discount</span><span className="font-mono tabular-nums">−{formatINR(preview.discountAmount)}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Tax</span><span className="font-mono tabular-nums">+{formatINR(preview.taxAmount)}</span></div>
+                <div className="mt-1 flex justify-between border-t pt-1 font-medium"><span>Total</span><span className="font-mono tabular-nums">{formatINR(preview.total)}</span></div>
               </div>
             </div>
             <DialogFooter>
@@ -457,18 +454,18 @@ export default function QuotationsPage() {
                     <TableRow key={i}>
                       <TableCell>{li.description}</TableCell>
                       <TableCell><Badge variant="secondary">{titleCase(li.category)}</Badge></TableCell>
-                      <TableCell>{li.quantity}</TableCell>
-                      <TableCell>{formatINR(li.unitPrice)}</TableCell>
-                      <TableCell>{formatINR(li.amount)}</TableCell>
+                      <TableCell className="font-mono tabular-nums">{li.quantity}</TableCell>
+                      <TableCell className="font-mono tabular-nums">{formatINR(li.unitPrice)}</TableCell>
+                      <TableCell className="font-mono tabular-nums">{formatINR(li.amount)}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
               <div className="rounded-lg bg-muted/50 p-3 text-sm">
-                <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span>{formatINR(viewingQuotation.subtotal)}</span></div>
-                <div className="flex justify-between"><span className="text-muted-foreground">Discount ({viewingQuotation.discountPercent}%)</span><span>−{formatINR(viewingQuotation.discountAmount)}</span></div>
-                <div className="flex justify-between"><span className="text-muted-foreground">Tax ({viewingQuotation.taxPercent}%)</span><span>+{formatINR(viewingQuotation.taxAmount)}</span></div>
-                <div className="mt-1 flex justify-between border-t pt-1 font-medium"><span>Total</span><span>{formatINR(viewingQuotation.total)}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span className="font-mono tabular-nums">{formatINR(viewingQuotation.subtotal)}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Discount ({viewingQuotation.discountPercent}%)</span><span className="font-mono tabular-nums">−{formatINR(viewingQuotation.discountAmount)}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Tax ({viewingQuotation.taxPercent}%)</span><span className="font-mono tabular-nums">+{formatINR(viewingQuotation.taxAmount)}</span></div>
+                <div className="mt-1 flex justify-between border-t pt-1 font-medium"><span>Total</span><span className="font-mono tabular-nums">{formatINR(viewingQuotation.total)}</span></div>
               </div>
               {(viewingQuotation.notes || viewingQuotation.terms) && (
                 <div className="space-y-2 text-sm">

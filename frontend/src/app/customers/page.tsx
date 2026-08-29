@@ -210,7 +210,7 @@ export default function CustomersPage() {
                     {customers.map((c) => (
                       <TableRow key={c._id}>
                         <TableCell className="font-medium">{c.name}</TableCell>
-                        <TableCell className="text-muted-foreground">{c.phone}</TableCell>
+                        <TableCell className="font-mono tabular-nums text-muted-foreground">{c.phone}</TableCell>
                         <TableCell className="text-muted-foreground">{c.email || '—'}</TableCell>
                         <TableCell className="max-w-48 truncate text-muted-foreground">{c.address || '—'}</TableCell>
                         <TableCell>

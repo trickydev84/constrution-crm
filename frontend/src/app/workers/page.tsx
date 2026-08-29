@@ -38,6 +38,7 @@ import {
   type Worker,
 } from '@/lib/api';
 import { getUser, type AuthUser } from '@/lib/auth';
+import { formatINR } from '@/lib/format';
 
 // Matches backend/src/modules/workers/worker.constants.ts's WORKER_SKILL_CATEGORIES — not
 // PRD-specified, invented for this module. Update both if either changes.
@@ -48,14 +49,10 @@ function titleCase(value: string) {
   return value.split('_').map((w) => w.charAt(0) + w.slice(1).toLowerCase()).join(' ');
 }
 
-function formatINR(amount: number) {
-  return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(amount);
-}
-
 function availabilityBadgeClass(status: string) {
-  if (status === 'AVAILABLE') return 'border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-400';
-  if (status === 'ASSIGNED') return 'border-sky-300 bg-sky-50 text-sky-700 dark:border-sky-800 dark:bg-sky-950 dark:text-sky-400';
-  if (status === 'ON_LEAVE') return 'border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-400';
+  if (status === 'AVAILABLE') return 'border-status-good-fg/30 bg-status-good-bg text-status-good-fg';
+  if (status === 'ASSIGNED') return 'border-status-info-fg/30 bg-status-info-bg text-status-info-fg';
+  if (status === 'ON_LEAVE') return 'border-status-warn-fg/30 bg-status-warn-bg text-status-warn-fg';
   return 'border-border bg-muted text-muted-foreground';
 }
 
@@ -247,12 +244,12 @@ export default function WorkersPage() {
                       <TableRow key={w._id}>
                         <TableCell className="font-medium">{w.name}</TableCell>
                         <TableCell><Badge variant="secondary">{titleCase(w.skillCategory)}</Badge></TableCell>
-                        <TableCell className="text-muted-foreground">{w.phone}</TableCell>
-                        <TableCell>{w.dailyWage != null ? formatINR(w.dailyWage) : <span className="text-xs text-muted-foreground">—</span>}</TableCell>
+                        <TableCell className="font-mono tabular-nums text-muted-foreground">{w.phone}</TableCell>
+                        <TableCell className="font-mono tabular-nums">{w.dailyWage != null ? formatINR(w.dailyWage) : <span className="text-xs text-muted-foreground">—</span>}</TableCell>
                         <TableCell className="text-muted-foreground">{w.assignedProjectId ? (projectNameById.get(w.assignedProjectId) ?? 'Unknown project') : '—'}</TableCell>
                         <TableCell>
                           {w.rating != null ? (
-                            <span className="flex items-center gap-1">
+                            <span className="flex items-center gap-1 font-mono tabular-nums">
                               <Star className="size-3.5 fill-amber-400 text-amber-400" />
                               {w.rating}
                             </span>

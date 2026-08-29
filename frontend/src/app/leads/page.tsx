@@ -52,10 +52,10 @@ function titleCase(value: string) {
 }
 
 function statusBadgeClass(status: string) {
-  if (status === 'WON') return 'border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-400';
+  if (status === 'WON') return 'border-status-good-fg/30 bg-status-good-bg text-status-good-fg';
   if (status === 'LOST') return 'border-border bg-muted text-muted-foreground';
-  if (status === 'NEGOTIATION' || status === 'QUOTATION_SENT') return 'border-sky-300 bg-sky-50 text-sky-700 dark:border-sky-800 dark:bg-sky-950 dark:text-sky-400';
-  return 'border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-400';
+  if (status === 'NEGOTIATION' || status === 'QUOTATION_SENT') return 'border-status-info-fg/30 bg-status-info-bg text-status-info-fg';
+  return 'border-status-warn-fg/30 bg-status-warn-bg text-status-warn-fg';
 }
 
 const EMPTY_LEAD_FORM = { name: '', phone: '', email: '', source: '', notes: '' };
@@ -236,7 +236,7 @@ export default function LeadsPage() {
                     {leads.map((l) => (
                       <TableRow key={l._id}>
                         <TableCell className="font-medium">{l.name}</TableCell>
-                        <TableCell className="text-muted-foreground">{l.phone}</TableCell>
+                        <TableCell className="font-mono tabular-nums text-muted-foreground">{l.phone}</TableCell>
                         <TableCell className="text-muted-foreground">{l.email || '—'}</TableCell>
                         <TableCell className="text-muted-foreground">{l.source || '—'}</TableCell>
                         <TableCell>

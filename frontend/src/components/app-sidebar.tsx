@@ -99,8 +99,8 @@ export function AppSidebar({ user }: { user: AuthUser }) {
           <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
             <Building2 className="size-4" />
           </div>
-          <span className="text-base font-semibold tracking-tight group-data-[collapsible=icon]:hidden">
-            Construct<span style={{ color: 'var(--brand-gold)' }}>ly</span>
+          <span className="text-base font-semibold tracking-tight text-sidebar-foreground group-data-[collapsible=icon]:hidden">
+            Constructly
           </span>
         </div>
       </SidebarHeader>
@@ -110,7 +110,12 @@ export function AppSidebar({ user }: { user: AuthUser }) {
             {visibleNavItems.map((item) =>
               item.href ? (
                 <SidebarMenuItem key={item.label}>
-                  <SidebarMenuButton isActive={pathname === item.href} tooltip={item.label} render={<Link href={item.href} />}>
+                  <SidebarMenuButton
+                    isActive={pathname === item.href}
+                    tooltip={item.label}
+                    className="data-active:bg-sidebar-active data-active:text-sidebar-accent-foreground"
+                    render={<Link href={item.href} />}
+                  >
                     <item.icon />
                     <span>{item.label}</span>
                   </SidebarMenuButton>
@@ -126,7 +131,12 @@ export function AppSidebar({ user }: { user: AuthUser }) {
             )}
             {user.role === 'SUPERADMIN' && (
               <SidebarMenuItem>
-                <SidebarMenuButton isActive={pathname === '/permissions'} tooltip="Permissions" render={<Link href="/permissions" />}>
+                <SidebarMenuButton
+                  isActive={pathname === '/permissions'}
+                  tooltip="Permissions"
+                  className="data-active:bg-sidebar-active data-active:text-sidebar-accent-foreground"
+                  render={<Link href="/permissions" />}
+                >
                   <ShieldCheck />
                   <span>Permissions</span>
                 </SidebarMenuButton>
